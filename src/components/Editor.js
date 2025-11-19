@@ -211,7 +211,7 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
     const code = editorRef.current.getValue();
 
     try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://codeverseai-editor.onrender.com';
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'codeverseai-editor-production.up.railway.app';
         
         const response = await fetch(`${backendUrl}/run`, {
             method: 'POST',

@@ -11,7 +11,7 @@ const bodyParser = require('body-parser');
 const server = http.createServer(app);
 const io = new Server(server, { 
   cors: { 
-    origin: '*',
+    origin: ['http://localhost:3000','https://warm-trifle-d2c345.netlify.app/', '*' ,],
     methods: ['GET', 'POST']
   } 
 });
