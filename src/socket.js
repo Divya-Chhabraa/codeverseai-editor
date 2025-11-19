@@ -3,40 +3,18 @@ import { io } from 'socket.io-client';
 export const initSocket = async () => {
     const options = {
         'force new connection': true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 1000,
+        reconnectionAttempt: 'Infinity',
         timeout: 10000,
-        transports: ['websocket', 'polling'], // Allow fallback to polling
+        transports: ['websocket'],
     };
     
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://codeverseai-editor-production.up.railway.app';
+    // ✅ SMART URL DETECTION FOR BOTH LOCAL AND DEPLOYED
+    const isBrowser = typeof window !== 'undefined';
+    const backendUrl = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'http://localhost:5000'  // Local development
+        : 'https://codeverseai-editor-production.up.railway.app'; // Deployed
     
-    console.log('🔌 Connecting to backend:', backendUrl);
+    console.log('🔌 Connecting to backend:', backendUrl, '(Auto-detected)');
     
-    return new Promise((resolve, reject) => {
-        const socket = io(backendUrl, options);
-
-        const connectionTimeout = setTimeout(() => {
-            reject(new Error('Connection timeout'));
-            socket.disconnect();
-        }, 10000);
-
-        socket.on('connect', () => {
-            console.log('✅ Socket connected successfully!');
-            clearTimeout(connectionTimeout);
-            resolve(socket);
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('❌ Socket connection error:', error.message);
-            clearTimeout(connectionTimeout);
-            reject(error);
-        });
-
-        socket.on('connect_timeout', () => {
-            console.error('❌ Socket connection timeout');
-            clearTimeout(connectionTimeout);
-            reject(new Error('Connection timeout'));
-        });
-    });
+    return io(backendUrl, options);
 };

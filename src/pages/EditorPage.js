@@ -406,13 +406,13 @@ const EditorPage = () => {
             {/* Editor Area */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Editor
-                    socketRef={socketRef}
-                    roomId={roomId}
-                    username={location.state?.username}
-                    onCodeChange={(code) => {
-                        codeRef.current = code;
-                    }}
-                />
+    socketRef={socketRef}
+    roomId={roomId}
+    username={location.state?.username}
+    onCodeChange={(code) => {
+        codeRef.current = code;
+    }}
+/>
             </div>
 
             <style>
