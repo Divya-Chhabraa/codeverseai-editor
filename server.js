@@ -9,16 +9,31 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const server = http.createServer(app);
-const io = new Server(server, { 
-  cors: { 
-    origin: ['http://localhost:3000','https://warm-trifle-d2c345.netlify.app/', '*' ,],
-    methods: ['GET', 'POST']
-  } 
+
+// ✅ FIXED CORS configuration
+app.use(cors({
+    origin: ['http://localhost:3000', 'https://warm-trifle-d2c345.netlify.app', '*'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
+}));
+
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'build')));
+
+// ✅ Add request logging middleware
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path}`, req.body ? 'with body' : '');
+    next();
 });
 
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static('build'));
+const io = new Server(server, { 
+    cors: { 
+        origin: ['http://localhost:3000', 'https://warm-trifle-d2c345.netlify.app', '*'],
+        methods: ['GET', 'POST']
+    },
+    // ✅ Add transport fallbacks
+    transports: ['websocket', 'polling']
+});
 
 /* ---------------- SOCKET.IO SETUP ---------------- */
 const userSocketMap = {};
@@ -67,7 +82,6 @@ io.on('connection', (socket) => {
         socket.in(roomId).emit(ACTIONS.RUN_OUTPUT, { output });
     });
 
-    // 💬 SIMPLE CHAT - FIXED VERSION
     socket.on(ACTIONS.CHAT_MESSAGE, (data) => {
         console.log('💬 RAW CHAT DATA:', data);
         
@@ -83,8 +97,6 @@ io.on('connection', (socket) => {
         };
 
         console.log('📤 Broadcasting message:', finalMessage);
-        
-        // Broadcast to ALL including sender
         io.to(roomId).emit(ACTIONS.CHAT_MESSAGE, finalMessage);
     });
 
@@ -112,7 +124,14 @@ io.on('connection', (socket) => {
 
 /* ---------------- CODE EXECUTION ROUTE ---------------- */
 app.post('/run', async (req, res) => {
+    console.log('🚀 /run endpoint hit:', req.body);
+    
     const { code, language, input } = req.body;
+
+    // ✅ Add validation
+    if (!code) {
+        return res.status(400).json({ error: 'Code is required' });
+    }
 
     const langMap = {
         javascript: { name: 'javascript', ext: 'js' },
@@ -124,6 +143,8 @@ app.post('/run', async (req, res) => {
     const selected = langMap[language] || langMap.javascript;
 
     try {
+        console.log(`🔧 Executing ${language} code...`);
+        
         const response = await axios.post('https://emkc.org/api/v2/piston/execute', {
             language: selected.name,
             version: '*',
@@ -131,15 +152,35 @@ app.post('/run', async (req, res) => {
             stdin: input || '',
         });
 
-        const output =
-            response.data.run?.stdout ||
-            response.data.run?.stderr ||
-            'No output';
-        res.json({ output });
+        console.log('✅ Execution successful:', response.data);
+
+        const output = response.data.run?.stdout ||
+                      response.data.run?.stderr ||
+                      response.data.message ||
+                      'No output';
+        
+        res.json({ 
+            success: true,
+            output: output
+        });
+        
     } catch (error) {
         console.error('❌ Error executing code:', error.message);
-        res.status(500).json({ error: 'Error running code. Please try again.' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Error running code. Please try again.',
+            details: error.message 
+        });
     }
+});
+
+// ✅ Add health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Server is running',
+        timestamp: new Date().toISOString()
+    });
 });
 
 app.get('*', (req, res) => {

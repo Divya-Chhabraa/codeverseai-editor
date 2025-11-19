@@ -10,6 +10,7 @@ import 'codemirror/mode/clike/clike';
 import 'codemirror/addon/edit/closetag';
 import 'codemirror/addon/edit/closebrackets';
 import ACTIONS from '../Actions';
+
 const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
     const editorRef = useRef(null);
     const [output, setOutput] = useState('');
@@ -25,7 +26,7 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
     const [isSocketReady, setIsSocketReady] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(true);
     const terminalInputRef = useRef(null);
-    const [isTerminalOpen, setIsTerminalOpen] = useState(true); // New state for terminal
+    const [isTerminalOpen, setIsTerminalOpen] = useState(true);
 
     // Monitor socketRef changes
     useEffect(() => {
@@ -36,7 +37,7 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
             console.log('❌ Socket ref is null');
             setIsSocketReady(false);
         }
-    }, [socketRef.current]);
+    }, [socketRef]);
 
     // Auto-scroll to bottom of chat and focus terminal input
     const scrollToBottom = () => {
@@ -86,7 +87,7 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
                 editorRef.current.toTextArea();
             }
         };
-    }, []);
+    }, [language, isDarkMode, socketRef, roomId, onCodeChange]);
 
     /* ---------------- Update CodeMirror Theme & Mode ---------------- */
     useEffect(() => {
@@ -128,39 +129,59 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
 
         // Handle incoming code changes from other users
         const handleCodeChange = ({ code }) => {
-            if (code !== null && code !== editorRef.current?.getValue()) {
-                console.log('📝 Receiving code change from other user');
-                editorRef.current.setValue(code);
+            try {
+                if (code !== null && code !== editorRef.current?.getValue()) {
+                    console.log('📝 Receiving code change from other user');
+                    editorRef.current.setValue(code);
+                }
+            } catch (error) {
+                console.error('Error handling code change:', error);
             }
         };
 
         // Handle language changes from other users
         const handleLanguageChange = ({ language }) => {
-            console.log('🌐 Receiving language change:', language);
-            setLanguage(language);
+            try {
+                console.log('🌐 Receiving language change:', language);
+                setLanguage(language);
+            } catch (error) {
+                console.error('Error handling language change:', error);
+            }
         };
 
         // Handle output from other users
         const handleRunOutput = ({ output }) => {
-            console.log('📊 Receiving output from other user');
-            setOutput(output);
+            try {
+                console.log('📊 Receiving output from other user');
+                setOutput(output);
+            } catch (error) {
+                console.error('Error handling run output:', error);
+            }
         };
 
         // Handle input changes from other users
         const handleInputChange = ({ input }) => {
-            console.log('⌨️ Receiving input change from other user');
-            setUserInput(input);
+            try {
+                console.log('⌨️ Receiving input change from other user');
+                setUserInput(input);
+            } catch (error) {
+                console.error('Error handling input change:', error);
+            }
         };
 
         // Handle chat messages
         const handleChatMessage = (message) => {
-            console.log('📨 handleChatMessage triggered:', message);
-            setChatMessages((prev) => {
-                if (prev.find(m => m.id === message.id)) {
-                    return prev;
-                }
-                return [...prev, message];
-            });
+            try {
+                console.log('📨 handleChatMessage triggered:', message);
+                setChatMessages((prev) => {
+                    if (prev.find(m => m.id === message.id)) {
+                        return prev;
+                    }
+                    return [...prev, message];
+                });
+            } catch (error) {
+                console.error('Error handling chat message:', error);
+            }
         };
 
         // Add welcome message
@@ -189,7 +210,7 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
             socket.off(ACTIONS.INPUT_CHANGE, handleInputChange);
             socket.off(ACTIONS.CHAT_MESSAGE, handleChatMessage);
         };
-    }, [socketRef.current]);
+    }, [socketRef, roomId, username]);
 
     /* ---------------- Handle language change ---------------- */
     const handleLanguageChange = (e) => {
@@ -205,35 +226,48 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
 
     /* ---------------- Run code via backend ---------------- */
     const runCode = async () => {
-    if (!editorRef.current) return;
+        if (!editorRef.current) return;
 
-    setIsRunning(true);
-    const code = editorRef.current.getValue();
+        setIsRunning(true);
+        const code = editorRef.current.getValue();
 
-    try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'codeverseai-editor-production.up.railway.app';
-        
-        const response = await fetch(`${backendUrl}/run`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, language, input: userInput }),
-        });
-        const result = await response.json();
-        const outputText = result.output || result.error || 'No output';
-        setOutput(outputText);
+        try {
+            // ✅ FIXED: Added https:// protocol
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://codeverseai-editor-production.up.railway.app';
+            
+            console.log('🚀 Sending code to backend:', backendUrl);
 
-        if (socketRef.current) {
-            socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
-                roomId,
-                output: outputText,
+            const response = await fetch(`${backendUrl}/run`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, language, input: userInput }),
             });
+
+            console.log('📡 Response status:', response.status);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Execution result:', result);
+            
+            const outputText = result.output || result.error || 'No output';
+            setOutput(outputText);
+
+            if (socketRef.current) {
+                socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
+                    roomId,
+                    output: outputText,
+                });
+            }
+        } catch (err) {
+            console.error('❌ Code execution error:', err);
+            setOutput('Error: Unable to connect to code execution service. Please try again.');
+        } finally {
+            setIsRunning(false);
         }
-    } catch (err) {
-        setOutput('Error running code: ' + err.message);
-    } finally {
-        setIsRunning(false);
-    }
-};
+    };
 
     /* ---------------- Chat send handler ---------------- */
     const sendChatMessage = () => {
@@ -410,18 +444,6 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {/* <div
-                            style={{
-                                fontSize: '14px',
-                                color: theme.textSecondary,
-                                backgroundColor: theme.surfaceSecondary,
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                fontWeight: '500',
-                            }}
-                        >
-                            Room ID : {roomId}
-                        </div> */}
                         <div
                             style={{
                                 fontSize: '14px',
@@ -697,6 +719,7 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
                                     </div>
                                 ) : (
                                     <div style={{ color: theme.textSecondary }}>
+                                        {/* Empty terminal state */}
                                     </div>
                                 )}
                             </div>
