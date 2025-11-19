@@ -18,60 +18,206 @@ const EditorPage = () => {
     const { roomId } = useParams();
     const reactNavigator = useNavigate();
     const [clients, setClients] = useState([]);
+    const [isConnecting, setIsConnecting] = useState(true);
+    const [connectionError, setConnectionError] = useState(false);
 
     useEffect(() => {
         const init = async () => {
-            socketRef.current = await initSocket();
-            socketRef.current.on('connect_error', (err) => handleErrors(err));
-            socketRef.current.on('connect_failed', (err) => handleErrors(err));
+            setIsConnecting(true);
+            setConnectionError(false);
 
-            function handleErrors(e) {
-                console.log('socket error', e);
-                toast.error('Socket connection failed, try again later.');
-                reactNavigator('/');
-            }
+            try {
+                console.log('🚀 Initializing socket connection...');
+                socketRef.current = await initSocket();
+                
+                // Connection event handlers
+                socketRef.current.on('connect', () => {
+                    console.log('✅ Socket connected successfully!');
+                    setIsConnecting(false);
+                    toast.success('Connected to room!');
+                });
 
-            socketRef.current.emit(ACTIONS.JOIN, {
-                roomId,
-                username: location.state?.username,
-            });
+                socketRef.current.on('connect_error', (err) => {
+                    console.error('❌ Socket connection error:', err);
+                    setIsConnecting(false);
+                    setConnectionError(true);
+                    handleErrors(err);
+                });
 
-            // Listening for joined event
-            socketRef.current.on(
-                ACTIONS.JOINED,
-                ({ clients, username, socketId }) => {
-                    if (username !== location.state?.username) {
-                        toast.success(`${username} joined the room.`);
-                        console.log(`${username} joined`);
+                socketRef.current.on('connect_failed', (err) => {
+                    console.error('❌ Socket connection failed:', err);
+                    setIsConnecting(false);
+                    setConnectionError(true);
+                    handleErrors(err);
+                });
+
+                socketRef.current.on('disconnect', (reason) => {
+                    console.log('🔌 Socket disconnected:', reason);
+                    if (reason === 'io server disconnect') {
+                        toast.error('Disconnected from server');
                     }
-                    setClients(clients);
-                    socketRef.current.emit(ACTIONS.SYNC_CODE, {
-                        code: codeRef.current,
-                        socketId,
-                    });
-                }
-            );
+                });
 
-            // Listening for disconnected
-            socketRef.current.on(
-                ACTIONS.DISCONNECTED,
-                ({ socketId, username }) => {
-                    toast.success(`${username} left the room.`);
-                    setClients((prev) => {
-                        return prev.filter(
-                            (client) => client.socketId !== socketId
-                        );
-                    });
+                function handleErrors(e) {
+                    console.log('Socket error:', e);
+                    toast.error('Connection failed. Please try again later.');
+                    setTimeout(() => {
+                        reactNavigator('/');
+                    }, 2000);
                 }
-            );
+
+                // Join room after successful connection
+                socketRef.current.emit(ACTIONS.JOIN, {
+                    roomId,
+                    username: location.state?.username,
+                });
+
+                // Listening for joined event
+                socketRef.current.on(
+                    ACTIONS.JOINED,
+                    ({ clients, username, socketId }) => {
+                        if (username !== location.state?.username) {
+                            toast.success(`${username} joined the room.`);
+                            console.log(`${username} joined`);
+                        }
+                        setClients(clients);
+                        socketRef.current.emit(ACTIONS.SYNC_CODE, {
+                            code: codeRef.current,
+                            socketId,
+                        });
+                    }
+                );
+
+                // Listening for disconnected
+                socketRef.current.on(
+                    ACTIONS.DISCONNECTED,
+                    ({ socketId, username }) => {
+                        toast.success(`${username} left the room.`);
+                        setClients((prev) => {
+                            return prev.filter(
+                                (client) => client.socketId !== socketId
+                            );
+                        });
+                    }
+                );
+
+            } catch (error) {
+                console.error('❌ Failed to initialize socket:', error);
+                setIsConnecting(false);
+                setConnectionError(true);
+                toast.error('Failed to connect to server');
+            }
         };
+
         init();
+
         return () => {
-            socketRef.current.disconnect();
-            socketRef.current.off(ACTIONS.JOINED);
-            socketRef.current.off(ACTIONS.DISCONNECTED);
+            if (socketRef.current) {
+                console.log('🧹 Cleaning up socket connection...');
+                socketRef.current.disconnect();
+                socketRef.current.off(ACTIONS.JOINED);
+                socketRef.current.off(ACTIONS.DISCONNECTED);
+                socketRef.current.off('connect_error');
+                socketRef.current.off('connect_failed');
+                socketRef.current.off('connect');
+                socketRef.current.off('disconnect');
+            }
         };
     }, []);
+
+    // Show loading/connection state
+    if (isConnecting) {
+        return (
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100vh',
+                flexDirection: 'column',
+                gap: '20px',
+                backgroundColor: '#1e1f29',
+                color: '#f8f8f2',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            }}>
+                <div style={{ 
+                    width: '50px', 
+                    height: '50px', 
+                    border: '4px solid #44475a', 
+                    borderTop: '4px solid #61dafb', 
+                    borderRadius: '50%', 
+                    animation: 'spin 1s linear infinite' 
+                }}></div>
+                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>Connecting to Room...</div>
+                <div style={{ fontSize: '14px', color: '#bd93f9' }}>Room ID: {roomId}</div>
+                <style>
+                    {`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    `}
+                </style>
+            </div>
+        );
+    }
+
+    // Show connection error state
+    if (connectionError) {
+        return (
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100vh',
+                flexDirection: 'column',
+                gap: '20px',
+                backgroundColor: '#1e1f29',
+                color: '#f8f8f2',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            }}>
+                <div style={{ fontSize: '48px' }}>🔌</div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff5555' }}>Connection Failed</div>
+                <div style={{ fontSize: '16px', textAlign: 'center', maxWidth: '400px' }}>
+                    Unable to connect to the server. Please check your internet connection and try again.
+                </div>
+                <button 
+                    onClick={() => window.location.reload()}
+                    style={{
+                        padding: '12px 24px',
+                        backgroundColor: '#61dafb',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        color: '#000',
+                        fontSize: '14px',
+                        marginTop: '10px'
+                    }}
+                >
+                    🔄 Retry Connection
+                </button>
+                <button 
+                    onClick={() => reactNavigator('/')}
+                    style={{
+                        padding: '12px 24px',
+                        backgroundColor: 'transparent',
+                        border: '2px solid #ff5555',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        color: '#ff5555',
+                        fontSize: '14px'
+                    }}
+                >
+                    🏠 Return Home
+                </button>
+            </div>
+        );
+    }
+
+    if (!location.state) {
+        return <Navigate to="/" />;
+    }
 
     async function copyRoomId() {
         try {
@@ -85,10 +231,6 @@ const EditorPage = () => {
 
     function leaveRoom() {
         reactNavigator('/');
-    }
-
-    if (!location.state) {
-        return <Navigate to="/" />;
     }
 
     return (
@@ -131,6 +273,29 @@ const EditorPage = () => {
                         fontWeight:'500'
                     }}>
                         Collaborative Code Editor
+                    </div>
+                </div>
+
+                {/* Connection Status */}
+                <div style={{
+                    backgroundColor: '#50fa7b20',
+                    border: '1px solid #50fa7b',
+                    padding: '8px',
+                    borderRadius: '6px',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <div style={{
+                        width: '8px',
+                        height: '8px',
+                        backgroundColor: '#50fa7b',
+                        borderRadius: '50%',
+                        animation: 'pulse 2s infinite'
+                    }}></div>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#50fa7b' }}>
+                        Connected
                     </div>
                 </div>
 
@@ -231,7 +396,6 @@ const EditorPage = () => {
                         }}
                         onMouseOver={(e) => {
                             e.target.style.backgroundColor = '#ff7979';
-
                         }}
                     >
                         🚪 Leave
@@ -250,6 +414,16 @@ const EditorPage = () => {
                     }}
                 />
             </div>
+
+            <style>
+                {`
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                    100% { opacity: 1; }
+                }
+                `}
+            </style>
         </div>
     );
 };
