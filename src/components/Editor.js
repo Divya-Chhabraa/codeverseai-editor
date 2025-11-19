@@ -9,7 +9,6 @@ import 'codemirror/mode/clike/clike';
 import 'codemirror/addon/edit/closetag';
 import 'codemirror/addon/edit/closebrackets';
 import ACTIONS from '../Actions';
-import { io } from 'socket.io-client';
 
 const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const editorRef = useRef(null);
@@ -70,7 +69,7 @@ useEffect(() => {
         socket.off('disconnect', handleDisconnect);
         socket.off('connect_error', handleConnectError);
     };
-}, [socketRef.current]);
+}, [socketRef]);
 
     /* ---------------- Initialize CodeMirror ---------------- */
 /* ---------------- Initialize CodeMirror ---------------- */
@@ -129,7 +128,7 @@ useEffect(() => {
             editorRef.current.toTextArea();
         }
     };
-}, []); // Run only once on mount
+}, [language, isDarkMode, roomId, onCodeChange, socketRef]); // Run only once on mount
 
     /* ---------------- Socket event listeners ---------------- */
     useEffect(() => {
@@ -224,7 +223,7 @@ const handleChatMessage = (message) => {
             socket.off(ACTIONS.CHAT_MESSAGE, handleChatMessage);
             socket.off(ACTIONS.JOINED, handleUserJoined);
         };
-    }, [socketRef.current]);
+    }, [socketRef, chatMessages]);
 
     /* ---------------- Update CodeMirror Theme & Mode ---------------- */
     useEffect(() => {
