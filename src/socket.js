@@ -9,7 +9,7 @@ export const initSocket = async () => {
     };
     
     // ADD THIS - Provide fallback URL
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://codeverseai-editor.onrender.com';
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'codeverseai-editor-production.up.railway.app';
     
     console.log('🔌 Connecting to backend:', backendUrl); // Debug line
     
