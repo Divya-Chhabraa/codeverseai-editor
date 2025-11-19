@@ -9,7 +9,12 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, { 
+  cors: { 
+    origin: '*',
+    methods: ['GET', 'POST']
+  } 
+});
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -42,6 +47,8 @@ io.on('connection', (socket) => {
                 socketId: socket.id,
             });
         });
+        
+        console.log(`👤 ${username} joined room: ${roomId}`);
     });
 
     socket.on(ACTIONS.CODE_CHANGE, ({ roomId, code }) => {
@@ -52,13 +59,33 @@ io.on('connection', (socket) => {
         socket.in(roomId).emit(ACTIONS.LANGUAGE_CHANGE, { language });
     });
 
-    // 🟢 Input text sync
     socket.on(ACTIONS.INPUT_CHANGE, ({ roomId, input }) => {
         socket.in(roomId).emit(ACTIONS.INPUT_CHANGE, { input });
     });
 
     socket.on(ACTIONS.RUN_OUTPUT, ({ roomId, output }) => {
         socket.in(roomId).emit(ACTIONS.RUN_OUTPUT, { output });
+    });
+
+    // 💬 SIMPLE CHAT - FIXED VERSION
+    socket.on(ACTIONS.CHAT_MESSAGE, (data) => {
+        console.log('💬 RAW CHAT DATA:', data);
+        
+        const { roomId, message } = data;
+        const senderName = userSocketMap[socket.id] || 'Unknown';
+        
+        const finalMessage = {
+            id: Date.now() + Math.random(),
+            text: message.text,
+            sender: senderName,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: Date.now()
+        };
+
+        console.log('📤 Broadcasting message:', finalMessage);
+        
+        // Broadcast to ALL including sender
+        io.to(roomId).emit(ACTIONS.CHAT_MESSAGE, finalMessage);
     });
 
     socket.on(ACTIONS.SYNC_CODE, ({ socketId, code }) => {
@@ -73,6 +100,12 @@ io.on('connection', (socket) => {
                 username: userSocketMap[socket.id],
             });
         });
+        delete userSocketMap[socket.id];
+        socket.leave();
+    });
+
+    socket.on('disconnect', () => {
+        console.log('❌ Socket disconnected:', socket.id);
         delete userSocketMap[socket.id];
     });
 });
@@ -109,11 +142,9 @@ app.post('/run', async (req, res) => {
     }
 });
 
-/* ---------------- FRONTEND ROUTE ---------------- */
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
-/* ---------------- START SERVER ---------------- */
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
