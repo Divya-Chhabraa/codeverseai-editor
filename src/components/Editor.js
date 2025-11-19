@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from 'react';
 import Codemirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
@@ -9,8 +10,6 @@ import 'codemirror/mode/clike/clike';
 import 'codemirror/addon/edit/closetag';
 import 'codemirror/addon/edit/closebrackets';
 import ACTIONS from '../Actions';
-import Avatar from 'react-avatar';
-
 const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
     const editorRef = useRef(null);
     const [output, setOutput] = useState('');
@@ -206,33 +205,35 @@ const Editor = ({ socketRef, roomId, onCodeChange, username }) => {
 
     /* ---------------- Run code via backend ---------------- */
     const runCode = async () => {
-        if (!editorRef.current) return;
+    if (!editorRef.current) return;
 
-        setIsRunning(true);
-        const code = editorRef.current.getValue();
+    setIsRunning(true);
+    const code = editorRef.current.getValue();
 
-        try {
-            const response = await fetch('/run', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, language, input: userInput }),
+    try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://codeverseai-editor.onrender.com';
+        
+        const response = await fetch(`${backendUrl}/run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, language, input: userInput }),
+        });
+        const result = await response.json();
+        const outputText = result.output || result.error || 'No output';
+        setOutput(outputText);
+
+        if (socketRef.current) {
+            socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
+                roomId,
+                output: outputText,
             });
-            const result = await response.json();
-            const outputText = result.output || result.error || 'No output';
-            setOutput(outputText);
-
-            if (socketRef.current) {
-                socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
-                    roomId,
-                    output: outputText,
-                });
-            }
-        } catch (err) {
-            setOutput('Error running code');
-        } finally {
-            setIsRunning(false);
         }
-    };
+    } catch (err) {
+        setOutput('Error running code: ' + err.message);
+    } finally {
+        setIsRunning(false);
+    }
+};
 
     /* ---------------- Chat send handler ---------------- */
     const sendChatMessage = () => {

@@ -170,15 +170,19 @@ const Home = () => {
                     paddingTop: '20px'
                 }}>
                     If you don't have an invite then create{' '}
-                    <a
+                    <button
                         onClick={createNewRoom}
-                        href=""
                         style={{
+                            background: 'none',
+                            border: 'none',
                             color: '#bd93f9',
                             textDecoration: 'none',
                             fontWeight: 'bold',
                             cursor: 'pointer',
-                            borderBottom: '1px dashed #bd93f9'
+                            borderBottom: '1px dashed #bd93f9',
+                            fontSize: '14px',
+                            padding: '0',
+                            margin: '0'
                         }}
                         onMouseOver={(e) => {
                             e.target.style.color = '#61dafb';
@@ -190,7 +194,7 @@ const Home = () => {
                         }}
                     >
                         new room
-                    </a>
+                    </button>
                 </div>
 
                 {/* Room ID Display (when created) */}

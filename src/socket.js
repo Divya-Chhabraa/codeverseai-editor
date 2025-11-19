@@ -7,5 +7,11 @@ export const initSocket = async () => {
         timeout: 10000,
         transports: ['websocket'],
     };
-    return io(process.env.REACT_APP_BACKEND_URL, options);
+    
+    // ADD THIS - Provide fallback URL
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://codeverseai-editor.onrender.com';
+    
+    console.log('🔌 Connecting to backend:', backendUrl); // Debug line
+    
+    return io(backendUrl, options);
 };
