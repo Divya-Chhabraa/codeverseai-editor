@@ -13,7 +13,7 @@ const server = http.createServer(app);
 
 // ✅ Fixed CORS configuration
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:5000', 'https://warm-trifle-d2c345.netlify.app', 'https://codeverse-ai.netlify.app', 'https://codeverseai-editor-production.up.railway.app'],
+    origin: ['http://localhost:3000', 'http://localhost:5000', 'https://warm-trifle-d2c345.netlify.app', 'https://codeverse-ai.netlify.app', 'https://codeverseai-editor-production.up.railway.app','https://codeverseai-editor.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
 }));
@@ -23,7 +23,7 @@ app.use(express.static(path.join(__dirname, 'build')));
 
 const io = new Server(server, { 
     cors: { 
-        origin: ['http://localhost:3000', 'http://localhost:5000', 'https://warm-trifle-d2c345.netlify.app', 'https://codeverse-ai.netlify.app', 'https://codeverseai-editor-production.up.railway.app'],
+        origin: ['http://localhost:3000', 'http://localhost:5000', 'https://warm-trifle-d2c345.netlify.app', 'https://codeverse-ai.netlify.app', 'https://codeverseai-editor-production.up.railway.app','https://codeverseai-editor.vercel.app'],
         methods: ['GET', 'POST'],
         credentials: true
     },
