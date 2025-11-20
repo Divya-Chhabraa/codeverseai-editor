@@ -29,76 +29,68 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [connectionStatus, setConnectionStatus] = useState('connecting');
 
     /* ---------------- USE SOCKET FROM PROPS ---------------- */
-useEffect(() => {
-    if (!socketRef.current) {
-        console.log('⏳ Waiting for socket from parent...');
-        return;
-    }
-
-    const socket = socketRef.current;
-    
-    // Set initial connection state
-    setIsSocketReady(socket.connected);
-    setConnectionStatus(socket.connected ? 'connected' : 'connecting');
-
-    // Listen for connection status changes
-    const handleConnect = () => {
-        console.log('✅ Editor: Socket connected');
-        setIsSocketReady(true);
-        setConnectionStatus('connected');
-    };
-
-    const handleDisconnect = () => {
-        console.log('🔌 Editor: Socket disconnected');
-        setIsSocketReady(false);
-        setConnectionStatus('disconnected');
-    };
-
-    const handleConnectError = (error) => {
-        console.error('❌ Editor: Socket connection error', error);
-        setIsSocketReady(false);
-        setConnectionStatus('error');
-    };
-
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('connect_error', handleConnectError);
-
-    return () => {
-        socket.off('connect', handleConnect);
-        socket.off('disconnect', handleDisconnect);
-        socket.off('connect_error', handleConnectError);
-    };
-}, [socketRef]);
-
-    /* ---------------- Initialize CodeMirror ---------------- */
-/* ---------------- Initialize CodeMirror ---------------- */
-useEffect(() => {
-    console.log('🔧 Initializing CodeMirror...');
-    
-    // Small delay to ensure DOM is rendered
-    setTimeout(() => {
-        const textarea = document.getElementById('realtimeEditor');
-        console.log('📝 Textarea found:', textarea);
-        
-        if (!textarea) {
-            console.error('❌ Textarea not found! Check if ID matches');
+    useEffect(() => {
+        if (!socketRef.current) {
+            console.log('⏳ Waiting for socket from parent...');
             return;
         }
 
+        const socket = socketRef.current;
+        
+        // Set initial connection state
+        setIsSocketReady(socket.connected);
+        setConnectionStatus(socket.connected ? 'connected' : 'connecting');
+
+        // Listen for connection status changes
+        const handleConnect = () => {
+            console.log('✅ Editor: Socket connected');
+            setIsSocketReady(true);
+            setConnectionStatus('connected');
+        };
+
+        const handleDisconnect = () => {
+            console.log('🔌 Editor: Socket disconnected');
+            setIsSocketReady(false);
+            setConnectionStatus('disconnected');
+        };
+
+        const handleConnectError = (error) => {
+            console.error('❌ Editor: Socket connection error', error);
+            setIsSocketReady(false);
+            setConnectionStatus('error');
+        };
+
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect_error', handleConnectError);
+
+        return () => {
+            socket.off('connect', handleConnect);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('connect_error', handleConnectError);
+        };
+    }, [socketRef]);
+
+/* ---------------- Initialize CodeMirror (ONCE) ---------------- */
+useEffect(() => {
+    console.log('🔧 Initializing CodeMirror...');
+    
+    setTimeout(() => {
+        const textarea = document.getElementById('realtimeEditor');
+        if (!textarea) return;
+
         editorRef.current = Codemirror.fromTextArea(textarea, {
-            mode: { name: language === 'cpp' || language === 'java' ? 'text/x-c++src' : language },
+            mode: 'javascript', // Start with default mode
             theme: isDarkMode ? 'dracula' : 'default',
             autoCloseTags: true,
             autoCloseBrackets: true,
             lineNumbers: true,
             lineWrapping: true,
             scrollbarStyle: 'native',
-            value: "// Start coding here...\nconsole.log('Hello World!');" // ✅ Add default code
+            value: "// Start coding here...\nconsole.log('Hello World!');"
         });
 
-        console.log('✅ CodeMirror initialized:', editorRef.current);
-        console.log('📏 CodeMirror element:', editorRef.current.getWrapperElement());
+        console.log('✅ CodeMirror initialized');
 
         editorRef.current.on('change', (instance, changes) => {
             const { origin } = changes;
@@ -112,11 +104,9 @@ useEffect(() => {
             }
         });
 
-        // ✅ Refresh CodeMirror to ensure proper rendering
         setTimeout(() => {
             if (editorRef.current) {
                 editorRef.current.refresh();
-                console.log('🔄 CodeMirror refreshed');
             }
         }, 100);
 
@@ -124,16 +114,48 @@ useEffect(() => {
 
     return () => {
         if (editorRef.current) {
-            console.log('🧹 Cleaning up CodeMirror');
             editorRef.current.toTextArea();
         }
     };
-}, [language, isDarkMode, roomId, onCodeChange, socketRef]); // Run only once on mount
+}, []); // ✅ RUN ONLY ONCE - remove all dependencies
+
+/* ---------------- Update CodeMirror Mode When Language Changes ---------------- */
+useEffect(() => {
+    if (!editorRef.current) return;
+    
+    let mode;
+    switch(language) {
+        case 'javascript':
+            mode = 'javascript';
+            break;
+        case 'python':
+            mode = 'python';
+            break;
+        case 'cpp':
+        case 'java':
+            mode = 'text/x-c++src';
+            break;
+        default:
+            mode = 'javascript';
+    }
+    
+    console.log('🔄 Updating CodeMirror mode to:', mode);
+    editorRef.current.setOption('mode', mode);
+    
+}, [language]); // ✅ Only update mode, not recreate editor
+
+/* ---------------- Update CodeMirror Theme ---------------- */
+useEffect(() => {
+    if (!editorRef.current) return;
+    
+    console.log('🎨 Updating CodeMirror theme');
+    editorRef.current.setOption('theme', isDarkMode ? 'dracula' : 'default');
+}, [isDarkMode]); // ✅ Only update theme
 
     /* ---------------- Socket event listeners ---------------- */
     useEffect(() => {
         if (!socketRef.current) {
-            console.log('⏳ Waiting for socket connection...');
+            console.log('⏳ No socket available for listeners');
             return;
         }
 
@@ -141,24 +163,23 @@ useEffect(() => {
         console.log('🔌 Setting up socket listeners for chat and code sync');
 
         // Handle incoming code changes from other users
-        // Handle incoming code changes from other users
-const handleCodeChange = ({ code }) => {
-    if (!editorRef.current) {
-        console.log('⏳ Editor not ready yet, skipping code change');
-        return;
-    }
-    
-    const currentCode = editorRef.current.getValue();
-    if (code !== null && code !== currentCode) {
-        console.log('📝 Receiving code change from other user');
-        editorRef.current.setValue(code);
-    }
-};
+        const handleCodeChange = ({ code }) => {
+            if (!editorRef.current) {
+                console.log('⏳ Editor not ready yet, skipping code change');
+                return;
+            }
+            
+            const currentCode = editorRef.current.getValue();
+            if (code !== null && code !== currentCode) {
+                console.log('📝 Receiving code change from other user');
+                editorRef.current.setValue(code);
+            }
+        };
 
         // Handle language changes from other users
-        const handleLanguageChange = ({ language }) => {
-            console.log('🌐 Receiving language change:', language);
-            setLanguage(language);
+        const handleLanguageChange = ({ language: newLanguage }) => {
+            console.log('🌐 Receiving language change from socket:', newLanguage);
+            setLanguage(newLanguage);
         };
 
         // Handle output from other users
@@ -174,35 +195,36 @@ const handleCodeChange = ({ code }) => {
         };
 
         // Handle chat messages
-        // Handle chat messages
-const handleChatMessage = (message) => {
-    console.log('📨 handleChatMessage triggered:', message);
-    console.log('💬 Current messages before:', chatMessages);
-    
-    setChatMessages((prev) => {
-        if (prev.find(m => m.id === message.id)) {
-            console.log('🚫 Duplicate message prevented');
-            return prev;
-        }
-        const newMessages = [...prev, message];
-        console.log('💬 New messages after:', newMessages);
-        return newMessages;
-    });
-};
+        const handleChatMessage = (message) => {
+            console.log('📨 handleChatMessage triggered:', message);
+            console.log('💬 Current messages before:', chatMessages);
+            
+            setChatMessages((prev) => {
+                if (prev.find(m => m.id === message.id)) {
+                    console.log('🚫 Duplicate message prevented');
+                    return prev;
+                }
+                const newMessages = [...prev, message];
+                console.log('💬 New messages after:', newMessages);
+                return newMessages;
+            });
+        };
 
         // Handle user joined
         const handleUserJoined = ({ clients, username, socketId }) => {
             console.log(`👋 ${username} joined the room`);
         };
 
-        // Add welcome message
-        const welcomeMessage = {
-            id: Date.now(),
-            text: 'Welcome to CodeVerse AI! Start coding collaboratively...',
-            sender: 'System',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setChatMessages([welcomeMessage]);
+        // Add welcome message only if no messages exist
+        if (chatMessages.length === 0) {
+            const welcomeMessage = {
+                id: Date.now(),
+                text: 'Welcome to CodeVerse AI! Start coding collaboratively...',
+                sender: 'System',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setChatMessages([welcomeMessage]);
+        }
 
         // Set up all event listeners
         socket.on(ACTIONS.CODE_CHANGE, handleCodeChange);
@@ -268,71 +290,98 @@ const handleChatMessage = (message) => {
     /* ---------------- Handle language change ---------------- */
     const handleLanguageChange = (e) => {
         const newLang = e.target.value;
+        console.log('🌐 User changing language to:', newLang);
+        
         setLanguage(newLang);
-        if (socketRef.current && isSocketReady) {
+        
+        if (socketRef.current) {
+            console.log('📡 Emitting language change to socket');
             socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {
                 roomId,
                 language: newLang,
             });
+        } else {
+            console.error('❌ Socket not available for language change');
         }
     };
 
     /* ---------------- Run code via backend ---------------- */
     const runCode = async () => {
-    if (!editorRef.current) return;
+        if (!editorRef.current) return;
 
-    setIsRunning(true);
-    const code = editorRef.current.getValue();
+        setIsRunning(true);
+        const code = editorRef.current.getValue();
 
-    // ✅ DEBUG LINES:
-    console.log('🚀 runCode triggered');
-    console.log('📝 Code:', code.substring(0, 100) + '...');
-    console.log('🌐 Language:', language);
-    console.log('⌨️ Input:', userInput);
+        console.log('🚀 runCode triggered');
+        console.log('📝 Code:', code.substring(0, 100) + '...');
+        console.log('🌐 Language:', language);
+        console.log('⌨️ Input:', userInput);
 
-    try {
-        // ✅ SMART URL DETECTION FOR BOTH LOCAL AND DEPLOYED
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const backendUrl = isLocalhost 
-            ? 'http://localhost:5000'  // Local development
-            : 'https://codeverseai-editor-production.up.railway.app'; // Deployed
-        
-        console.log('🔗 Backend URL:', backendUrl, '(Auto-detected)');
-        
-        const response = await fetch(`${backendUrl}/run`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, language, input: userInput }),
-        });
-        
-        console.log('📡 Response status:', response.status);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        console.log('📊 Result:', result);
-        
-        const outputText = result.output || result.error || 'No output';
-        setOutput(outputText);
-
-        if (socketRef.current && isSocketReady) {
-            socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
-                roomId,
-                output: outputText,
+        try {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const backendUrl = isLocalhost 
+                ? 'http://localhost:5000'
+                : 'https://codeverseai-editor-production.up.railway.app';
+            
+            console.log('🔗 Backend URL:', backendUrl, '(Auto-detected)');
+            
+            const response = await fetch(`${backendUrl}/run`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, language, input: userInput }),
             });
+            
+            console.log('📡 Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('📊 Result:', result);
+            
+            const outputText = result.output || result.error || 'No output';
+            setOutput(outputText);
+
+            if (socketRef.current && isSocketReady) {
+                socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
+                    roomId,
+                    output: outputText,
+                });
+            }
+        } catch (err) {
+            console.error('❌ Run code error:', err);
+            setOutput('Error running code: ' + err.message);
+        } finally {
+            setIsRunning(false);
         }
-    } catch (err) {
-        console.error('❌ Run code error:', err);
-        setOutput('Error running code: ' + err.message);
-    } finally {
-        setIsRunning(false);
-    }
-};
+    };
+
+    /* ---------------- Chat input handler ---------------- */
+    const handleChatInputChange = (e) => {
+        const newText = e.target.value;
+        console.log('⌨️ Chat input changed:', newText);
+        setChatText(newText);
+    };
+
     /* ---------------- Chat send handler ---------------- */
     const sendChatMessage = () => {
-        if (!chatText.trim() || !socketRef.current || !isSocketReady) return;
+        console.log('💬 Send button clicked, text:', chatText);
+        
+        if (!chatText.trim()) {
+            console.log('❌ Empty message, not sending');
+            return;
+        }
+        
+        if (!socketRef.current) {
+            console.error('❌ Socket not available for chat');
+            return;
+        }
+
+        if (!isSocketReady) {
+            console.error('❌ Socket not ready for chat');
+            return;
+        }
 
         const messageData = {
             roomId,
@@ -341,6 +390,7 @@ const handleChatMessage = (message) => {
             }
         };
 
+        console.log('📤 Sending chat message:', messageData);
         socketRef.current.emit(ACTIONS.CHAT_MESSAGE, messageData);
         setChatText('');
     };
@@ -373,12 +423,10 @@ const handleChatMessage = (message) => {
             e.preventDefault();
             const input = e.target.value;
             if (input.trim()) {
-                // Add the input to output with prompt
                 setOutput(prev => prev + `\n> ${input}`);
                 setUserInput(input);
                 e.target.value = '';
                 
-                // Auto-run code when input is provided
                 if (editorRef.current) {
                     runCode();
                 }
@@ -413,7 +461,6 @@ const handleChatMessage = (message) => {
                         alignItems: isMe ? 'flex-end' : 'flex-start',
                     }}
                 >
-                    {/* Message bubble */}
                     <div
                         style={{
                             backgroundColor: isMe ? theme.accent : theme.surfaceSecondary,
@@ -427,19 +474,16 @@ const handleChatMessage = (message) => {
                             border: isMe ? 'none' : `1px solid ${theme.border}`,
                         }}
                     >
-                        {/* Sender name */}
                         {!isMe && (
                             <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '2px', color: theme.accent }}>
                                 {message.sender}
                             </div>
                         )}
                         
-                        {/* Message text */}
                         <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
                             {message.text}
                         </div>
                         
-                        {/* Time stamp */}
                         <div
                             style={{
                                 fontSize: '10px',
@@ -505,7 +549,6 @@ const handleChatMessage = (message) => {
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {/* Connection Status */}
                         <div style={{
                             fontSize: '14px',
                             color: connectionStatus === 'connected' ? theme.success : 
@@ -576,7 +619,6 @@ const handleChatMessage = (message) => {
                             {isDarkMode ? '☀️' : '🌙'}
                         </button>
 
-                        {/* Terminal Toggle Button */}
                         <button
                             onClick={toggleTerminal}
                             style={{
@@ -596,7 +638,6 @@ const handleChatMessage = (message) => {
                             {isTerminalOpen ? '📟' : '💻'}
                         </button>
 
-                        {/* Chat Toggle Button */}
                         <button
                             onClick={toggleChat}
                             style={{
@@ -691,7 +732,6 @@ const handleChatMessage = (message) => {
                             transition: 'all 0.3s ease',
                         }}
                     >
-                        {/* Terminal Header */}
                         <div
                             style={{
                                 display: 'flex',
@@ -764,7 +804,6 @@ const handleChatMessage = (message) => {
                             </div>
                         </div>
 
-                        {/* Terminal Content - Unified Output and Input */}
                         <div
                             style={{
                                 flex: 1,
@@ -776,7 +815,6 @@ const handleChatMessage = (message) => {
                                 fontSize: '13px',
                             }}
                         >
-                            {/* Scrollable Output Area */}
                             <div
                                 style={{
                                     flex: 1,
@@ -800,7 +838,6 @@ const handleChatMessage = (message) => {
                                 )}
                             </div>
 
-                            {/* Input Line - Integrated at bottom */}
                             <div
                                 style={{
                                     display: 'flex',
@@ -855,7 +892,6 @@ const handleChatMessage = (message) => {
                         transition: 'all 0.3s ease',
                     }}
                 >
-                    {/* Chat Header with Close Button */}
                     <div
                         style={{
                             padding: '16px 20px',
@@ -895,7 +931,6 @@ const handleChatMessage = (message) => {
                         </button>
                     </div>
 
-                    {/* Messages Area */}
                     <div
                         style={{
                             flex: 1,
@@ -926,7 +961,6 @@ const handleChatMessage = (message) => {
                         <div ref={chatMessagesEndRef} />
                     </div>
 
-                    {/* Chat Input */}
                     <div
                         style={{
                             padding: '16px',
@@ -947,7 +981,7 @@ const handleChatMessage = (message) => {
                         >
                             <textarea
                                 value={chatText}
-                                onChange={(e) => setChatText(e.target.value)}
+                                onChange={handleChatInputChange}
                                 onKeyDown={handleChatKeyDown}
                                 placeholder={isSocketReady ? "Type a message..." : "Connecting..."}
                                 disabled={!isSocketReady}
@@ -998,7 +1032,6 @@ const handleChatMessage = (message) => {
                 </div>
             )}
 
-            {/* Add CSS for spinner animation */}
             <style>
                 {`
                 @keyframes spin {
