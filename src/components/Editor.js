@@ -141,7 +141,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 editorRef.current.toTextArea();
             }
         };
-    }, []); // ✅ KEEP EMPTY - stable references used inside
+    }, [isDarkMode, onCodeChange, roomId, socketRef]); // ✅ KEEP EMPTY - stable references used inside
 
     /* ---------------- UPDATE CODEMIRROR MODE WHEN LANGUAGE CHANGES ---------------- */
     useEffect(() => {
