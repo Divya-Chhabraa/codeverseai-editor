@@ -9,7 +9,11 @@ const ACTIONS = {
     RUN_OUTPUT: 'run-output',
     INPUT_CHANGE: 'input-change', 
     CHAT_MESSAGE: 'chat-message',
-    CHAT_HISTORY: 'chat-history', // NEW: For loading chat history
+    CHAT_HISTORY: 'chat-history',
+    AI_MESSAGE: 'ai-message',
+    AI_HISTORY_REQUEST: 'ai-history-request',
+    AI_HISTORY_SYNC: 'ai-history-sync', 
+SYNC_CODE_REQUEST: 'sync-code-request',
 };
 
 module.exports = ACTIONS;

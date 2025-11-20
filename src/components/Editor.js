@@ -9,6 +9,8 @@ import 'codemirror/mode/clike/clike';
 import 'codemirror/addon/edit/closetag';
 import 'codemirror/addon/edit/closebrackets';
 import ACTIONS from '../Actions';
+import AIAssistant from './AIAssistant';
+import PanelSwitcher from './PanelSwitcher';
 
 const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const editorRef = useRef(null);
@@ -27,13 +29,16 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const terminalInputRef = useRef(null);
     const [isTerminalOpen, setIsTerminalOpen] = useState(true);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
+    const [activePanel, setActivePanel] = useState('chat');
+    const [aiMessages, setAiMessages] = useState([]);
+    
+    // Sync states
+    const [initialCodeReceived, setInitialCodeReceived] = useState(false);
+    const [initialOutputReceived, setInitialOutputReceived] = useState(false);
 
     /* ---------------- COMBINED SOCKET CONNECTION MONITORING ---------------- */
     useEffect(() => {
-        if (!socketRef.current) {
-            console.log('⏳ Waiting for socket from parent...');
-            return;
-        }
+        if (!socketRef.current) return;
 
         const socket = socketRef.current;
         
@@ -43,57 +48,55 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
         // Listen for connection status changes
         const handleConnect = () => {
-            console.log('✅ Editor: Socket connected');
             setIsSocketReady(true);
             setConnectionStatus('connected');
         };
 
         const handleDisconnect = () => {
-            console.log('🔌 Editor: Socket disconnected');
             setIsSocketReady(false);
             setConnectionStatus('disconnected');
         };
 
         const handleConnectError = (error) => {
-            console.error('❌ Editor: Socket connection error', error);
             setIsSocketReady(false);
             setConnectionStatus('error');
-        };
-
-        // Monitor transport upgrades
-        const handleUpgrade = (transport) => {
-            console.log('🔄 Transport upgraded to:', transport.name);
         };
 
         socket.on('connect', handleConnect);
         socket.on('disconnect', handleDisconnect);
         socket.on('connect_error', handleConnectError);
-        socket.io.engine?.on('upgrade', handleUpgrade);
 
         return () => {
             socket.off('connect', handleConnect);
             socket.off('disconnect', handleDisconnect);
             socket.off('connect_error', handleConnectError);
-            socket.io.engine?.off('upgrade', handleUpgrade);
         };
     }, [socketRef]);
 
-    /* ---------------- DEBUG EFFECT ---------------- */
+    /* ---------------- CODE SYNC REQUEST ---------------- */
     useEffect(() => {
-        console.log('🔍 DEBUG - Current state:', {
-            isSocketReady,
-            connectionStatus,
-            language,
-            chatMessagesCount: chatMessages.length,
-            chatText
-        });
-    }, [isSocketReady, connectionStatus, language, chatMessages.length, chatText]);
+        if (isSocketReady && socketRef.current && roomId && !initialCodeReceived) {
+            socketRef.current.emit(ACTIONS.SYNC_CODE_REQUEST, { roomId });
+            
+            const timeoutId = setTimeout(() => {
+                setInitialCodeReceived(true);
+                setInitialOutputReceived(true);
+            }, 2000);
+            
+            return () => clearTimeout(timeoutId);
+        }
+    }, [isSocketReady, socketRef, roomId, initialCodeReceived]);
+
+    /* ---------------- RESET ON ROOM CHANGE ---------------- */
+    useEffect(() => {
+        setInitialCodeReceived(false);
+        setInitialOutputReceived(false);
+        setOutput('');
+        setUserInput('');
+    }, [roomId]);
 
     /* ---------------- INITIALIZE CODEMIRROR (ONCE) ---------------- */
     useEffect(() => {
-        console.log('🔧 Initializing CodeMirror...');
-        
-        // ✅ Create stable references to avoid dependency warnings
         const currentSocketRef = socketRef.current;
         const currentRoomId = roomId;
         const currentOnCodeChange = onCodeChange;
@@ -111,10 +114,8 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 lineNumbers: true,
                 lineWrapping: true,
                 scrollbarStyle: 'native',
-                value: "// Start coding here...\nconsole.log('Hello World!');"
+                value: ""
             });
-
-            console.log('✅ CodeMirror initialized');
 
             editorRef.current.on('change', (instance, changes) => {
                 const { origin } = changes;
@@ -141,7 +142,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 editorRef.current.toTextArea();
             }
         };
-    }, [isDarkMode, onCodeChange, roomId, socketRef]); // ✅ KEEP EMPTY - stable references used inside
+    }, [isDarkMode, onCodeChange, roomId, socketRef]);
 
     /* ---------------- UPDATE CODEMIRROR MODE WHEN LANGUAGE CHANGES ---------------- */
     useEffect(() => {
@@ -163,68 +164,60 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 mode = 'javascript';
         }
         
-        console.log('🔄 Updating CodeMirror mode to:', mode);
         editorRef.current.setOption('mode', mode);
-        
     }, [language]);
 
     /* ---------------- UPDATE CODEMIRROR THEME ---------------- */
     useEffect(() => {
         if (!editorRef.current) return;
-        
-        console.log('🎨 Updating CodeMirror theme');
         editorRef.current.setOption('theme', isDarkMode ? 'dracula' : 'default');
     }, [isDarkMode]);
 
     /* ---------------- SOCKET EVENT LISTENERS ---------------- */
     useEffect(() => {
-        if (!socketRef.current) {
-            console.log('⏳ No socket available for listeners');
-            return;
-        }
+        if (!socketRef.current) return;
 
         const socket = socketRef.current;
-        console.log('🔌 Setting up socket listeners for chat and code sync');
 
         // Handle incoming code changes from other users
         const handleCodeChange = ({ code }) => {
-            if (!editorRef.current) {
-                console.log('⏳ Editor not ready yet, skipping code change');
-                return;
-            }
+            if (!editorRef.current) return;
             
             const currentCode = editorRef.current.getValue();
+            
             if (code !== null && code !== currentCode) {
-                console.log('📝 Receiving code change from other user');
-                editorRef.current.setValue(code);
+                if (!initialCodeReceived) {
+                    editorRef.current.setValue(code);
+                    setInitialCodeReceived(true);
+                } else if (code.trim() !== currentCode.trim()) {
+                    editorRef.current.setValue(code);
+                }
             }
         };
 
         // Handle language changes from other users
         const handleLanguageChange = ({ language: newLanguage }) => {
-            console.log('🌐 Receiving language change from socket:', newLanguage);
             setLanguage(newLanguage);
         };
 
         // Handle output from other users
         const handleRunOutput = ({ output }) => {
-            console.log('📊 Receiving output from other user');
-            setOutput(output);
+            if (!initialOutputReceived && output) {
+                setOutput(output);
+                setInitialOutputReceived(true);
+            } else if (initialOutputReceived) {
+                setOutput(output);
+            }
         };
 
         // Handle input changes from other users
         const handleInputChange = ({ input }) => {
-            console.log('⌨️ Receiving input change from other user');
             setUserInput(input);
         };
 
         // Handle chat messages
         const handleChatMessage = (message) => {
-            console.log('📨 handleChatMessage triggered:', message);
-            console.log('💬 Current messages before:', chatMessages.length);
-            
             setChatMessages((prev) => {
-                // ✅ IMPROVED DUPLICATE DETECTION
                 const isDuplicate = prev.some(m => 
                     m.id === message.id || 
                     (m.text === message.text && 
@@ -232,19 +225,29 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                      Math.abs(m.timestamp - message.timestamp) < 5000)
                 );
                 
-                if (isDuplicate) {
-                    console.log('🚫 Duplicate message prevented');
-                    return prev;
-                }
-                const newMessages = [...prev, message];
-                console.log('💬 New messages after:', newMessages.length);
-                return newMessages;
+                if (isDuplicate) return prev;
+                return [...prev, message];
             });
         };
 
-        // Handle user joined
-        const handleUserJoined = ({ clients, username: joinedUsername, socketId }) => {
-            console.log(`👋 ${joinedUsername} joined the room`);
+        // Handle AI messages
+        const handleAiMessage = (message) => {
+            setAiMessages((prev) => {
+                const isDuplicate = prev.some(m => 
+                    m.id === message.id || 
+                    (m.text === message.text && m.sender === message.sender && Math.abs(m.timestamp - message.timestamp) < 5000)
+                );
+                
+                if (isDuplicate) return prev;
+                return [...prev, message];
+            });
+        };
+
+        // Handle AI history sync
+        const handleAiHistorySync = ({ messages }) => {
+            if (aiMessages.length <= 1) {
+                setAiMessages(messages);
+            }
         };
 
         // Add welcome message only if no messages exist
@@ -258,15 +261,27 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             setChatMessages([welcomeMessage]);
         }
 
+        // Add AI welcome message only if no AI messages exist
+        if (aiMessages.length === 0) {
+            const aiWelcomeMessage = {
+                id: Date.now() + 1,
+                text: "Hello! I'm your AI coding assistant. I can help explain code, debug issues, suggest improvements, and answer programming questions. What would you like to know?",
+                sender: 'AI Assistant',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timestamp: Date.now(),
+                isAi: true
+            };
+            setAiMessages([aiWelcomeMessage]);
+        }
+
         // Set up all event listeners
         socket.on(ACTIONS.CODE_CHANGE, handleCodeChange);
         socket.on(ACTIONS.LANGUAGE_CHANGE, handleLanguageChange);
         socket.on(ACTIONS.RUN_OUTPUT, handleRunOutput);
         socket.on(ACTIONS.INPUT_CHANGE, handleInputChange);
         socket.on(ACTIONS.CHAT_MESSAGE, handleChatMessage);
-        socket.on(ACTIONS.JOINED, handleUserJoined);
-
-        console.log('✅ All socket listeners setup complete');
+        socket.on(ACTIONS.AI_MESSAGE, handleAiMessage);
+        socket.on(ACTIONS.AI_HISTORY_SYNC, handleAiHistorySync);
 
         // Cleanup
         return () => {
@@ -275,9 +290,17 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             socket.off(ACTIONS.RUN_OUTPUT, handleRunOutput);
             socket.off(ACTIONS.INPUT_CHANGE, handleInputChange);
             socket.off(ACTIONS.CHAT_MESSAGE, handleChatMessage);
-            socket.off(ACTIONS.JOINED, handleUserJoined);
+            socket.off(ACTIONS.AI_MESSAGE, handleAiMessage);
+            socket.off(ACTIONS.AI_HISTORY_SYNC, handleAiHistorySync);
         };
-    }, [socketRef, chatMessages, username]); // ✅ ADDED username TO DEPENDENCIES
+    }, [socketRef, chatMessages, username, aiMessages.length, roomId, isSocketReady, initialCodeReceived, initialOutputReceived]);
+
+    // 👇 REQUEST AI HISTORY WHEN SWITCHING TO AI PANEL
+    useEffect(() => {
+        if (activePanel === 'assistant' && socketRef.current && isSocketReady && roomId) {
+            socketRef.current.emit(ACTIONS.AI_HISTORY_REQUEST, { roomId });
+        }
+    }, [activePanel, socketRef, isSocketReady, roomId]);
 
     // Auto-scroll to bottom of chat
     useEffect(() => {
@@ -294,21 +317,13 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     /* ---------------- HANDLE LANGUAGE CHANGE ---------------- */
     const handleLanguageChange = (e) => {
         const newLang = e.target.value;
-        console.log('🌐 User changing language to:', newLang);
-        
-        // Update local state immediately
         setLanguage(newLang);
         
-        // ✅ ADD SOCKET READINESS CHECK
         if (socketRef.current && isSocketReady) {
-            console.log('📡 Emitting language change to socket');
             socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {
                 roomId,
                 language: newLang,
             });
-        } else {
-            console.error('❌ Socket not available or not ready for language change');
-            console.log('Socket ready:', isSocketReady, 'Socket exists:', !!socketRef.current);
         }
     };
 
@@ -319,18 +334,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         setIsRunning(true);
         const code = editorRef.current.getValue();
 
-        console.log('🚀 runCode triggered');
-        console.log('📝 Code:', code.substring(0, 100) + '...');
-        console.log('🌐 Language:', language);
-        console.log('⌨️ Input:', userInput);
-
         try {
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const backendUrl = isLocalhost 
                 ? 'http://localhost:5000'
                 : 'https://codeverseai-editor-production.up.railway.app';
-            
-            console.log('🔗 Backend URL:', backendUrl, '(Auto-detected)');
             
             const response = await fetch(`${backendUrl}/run`, {
                 method: 'POST',
@@ -338,15 +346,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 body: JSON.stringify({ code, language, input: userInput }),
             });
             
-            console.log('📡 Response status:', response.status);
-            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const result = await response.json();
-            console.log('📊 Result:', result);
-            
             const outputText = result.output || result.error || 'No output';
             setOutput(outputText);
 
@@ -357,8 +361,15 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 });
             }
         } catch (err) {
-            console.error('❌ Run code error:', err);
-            setOutput('Error running code: ' + err.message);
+            const errorOutput = 'Error running code: ' + err.message;
+            setOutput(errorOutput);
+            
+            if (socketRef.current && isSocketReady) {
+                socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
+                    roomId,
+                    output: errorOutput,
+                });
+            }
         } finally {
             setIsRunning(false);
         }
@@ -366,29 +377,12 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
     /* ---------------- Chat input handler ---------------- */
     const handleChatInputChange = (e) => {
-        const newText = e.target.value;
-        console.log('⌨️ Chat input changed:', newText);
-        setChatText(newText);
+        setChatText(e.target.value);
     };
 
     /* ---------------- Chat send handler ---------------- */
     const sendChatMessage = () => {
-        console.log('💬 Send button clicked, text:', chatText);
-        
-        if (!chatText.trim()) {
-            console.log('❌ Empty message, not sending');
-            return;
-        }
-        
-        if (!socketRef.current) {
-            console.error('❌ Socket not available for chat');
-            return;
-        }
-
-        if (!isSocketReady) {
-            console.error('❌ Socket not ready for chat');
-            return;
-        }
+        if (!chatText.trim() || !socketRef.current || !isSocketReady) return;
 
         const messageData = {
             roomId,
@@ -397,7 +391,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             }
         };
 
-        console.log('📤 Sending chat message:', messageData);
         socketRef.current.emit(ACTIONS.CHAT_MESSAGE, messageData);
         setChatText('');
     };
@@ -886,7 +879,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 )}
             </div>
 
-            {/* RIGHT CHAT PANEL - Collapsible with Updated Theme */}
+            {/* RIGHT PANEL - Switches between Chat and AI Assistant */}
             {isChatOpen && (
                 <div
                     style={{
@@ -899,9 +892,19 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         transition: 'all 0.3s ease',
                     }}
                 >
+                    {/* Panel Switcher */}
+                    <PanelSwitcher 
+                        activePanel={activePanel}
+                        setActivePanel={setActivePanel}
+                        theme={theme}
+                        chatMessages={chatMessages}
+                        aiMessages={aiMessages}
+                    />
+
+                    {/* Close Button */}
                     <div
                         style={{
-                            padding: '16px 20px',
+                            padding: '12px 20px',
                             borderBottom: `1px solid ${theme.border}`,
                             backgroundColor: theme.surface,
                             display: 'flex',
@@ -909,14 +912,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             justifyContent: 'space-between',
                         }}
                     >
-                        <div>
-                            <div style={{ fontWeight: 'bold', fontSize: '16px', color: theme.text }}>Room Chat</div>
-                            <div style={{ fontSize: '12px', color: theme.textSecondary }}>
-                                {isSocketReady ? 
-                                    `${chatMessages.length - 1} messages • Online` : 
-                                    'Connecting...'
-                                }
-                            </div>
+                        <div style={{ fontSize: '12px', color: theme.textSecondary }}>
+                            {activePanel === 'chat' ? 
+                                `${chatMessages.length - 1} messages • Online` : 
+                                `${aiMessages.length - 1} AI conversations`
+                            }
                         </div>
                         <button
                             onClick={toggleChat}
@@ -925,116 +925,145 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 border: 'none',
                                 color: theme.text,
                                 cursor: 'pointer',
-                                fontSize: '18px',
+                                fontSize: '16px',
                                 padding: '4px',
                                 borderRadius: '4px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                             }}
-                            title="Close Chat"
+                            title="Close Panel"
                         >
                             ✕
                         </button>
                     </div>
 
-                    <div
-                        style={{
-                            flex: 1,
-                            overflowY: 'auto',
-                            backgroundColor: theme.background,
-                            padding: '12px 0',
-                            display: 'flex',
-                            flexDirection: 'column',
-                        }}
-                    >
-                        {chatMessages.length === 0 ? (
+                    {/* Dynamic Panel Content */}
+                   <div style={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    minHeight: 0,
+                }}>
+                    {activePanel === 'chat' ? (
+                        /* Original Chat Panel Content */
+                        <>
                             <div
                                 style={{
-                                    color: theme.textSecondary,
-                                    textAlign: 'center',
-                                    marginTop: '50px',
-                                    fontSize: '14px',
-                                    fontStyle: 'italic',
-                                }}
-                            >
-                                No messages yet. Start the conversation! 👋
-                            </div>
-                        ) : (
-                            chatMessages.map((message) => (
-                                <ChatMessage key={message.id} message={message} />
-                            ))
-                        )}
-                        <div ref={chatMessagesEndRef} />
-                    </div>
-
-                    <div
-                        style={{
-                            padding: '16px',
-                            backgroundColor: theme.surface,
-                            borderTop: `1px solid ${theme.border}`,
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'flex-end',
-                                gap: '8px',
-                                backgroundColor: theme.surfaceSecondary,
-                                borderRadius: '8px',
-                                padding: '8px 12px',
-                                border: `1px solid ${theme.border}`,
-                            }}
-                        >
-                            <textarea
-                                value={chatText}
-                                onChange={handleChatInputChange}
-                                onKeyDown={handleChatKeyDown}
-                                placeholder={isSocketReady ? "Type a message..." : "Connecting..."}
-                                disabled={!isSocketReady}
-                                rows={1}
-                                style={{
                                     flex: 1,
-                                    resize: 'none',
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    color: isSocketReady ? theme.text : theme.textSecondary,
-                                    fontSize: '14px',
-                                    outline: 'none',
-                                    fontFamily: 'inherit',
-                                    maxHeight: '80px',
-                                    padding: '6px 0',
-                                    lineHeight: '1.4',
+                                    overflowY: 'auto',
+                                    backgroundColor: theme.background,
+                                    padding: '12px 0',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    minHeight: 0,
                                 }}
+            
+                                >
+                                    {chatMessages.length === 0 ? (
+                                        <div
+                                            style={{
+                                                color: theme.textSecondary,
+                                                textAlign: 'center',
+                                                marginTop: '50px',
+                                                fontSize: '14px',
+                                                fontStyle: 'italic',
+                                            }}
+                                        >
+                                            No messages yet. Start the conversation! 👋
+                                        </div>
+                                    ) : (
+                                        chatMessages.map((message) => (
+                                            <ChatMessage key={message.id} message={message} />
+                                        ))
+                                    )}
+                                    <div ref={chatMessagesEndRef} />
+                                </div>
+
+                                <div
+                                    style={{
+                                        padding: '16px',
+                                        backgroundColor: theme.surface,
+                                        borderTop: `1px solid ${theme.border}`,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'flex-end',
+                                            gap: '8px',
+                                            backgroundColor: theme.surfaceSecondary,
+                                            borderRadius: '8px',
+                                            padding: '8px 12px',
+                                            border: `1px solid ${theme.border}`,
+                                        }}
+                                    >
+                                        <textarea
+                                            value={chatText}
+                                            onChange={handleChatInputChange}
+                                            onKeyDown={handleChatKeyDown}
+                                            placeholder={isSocketReady ? "Type a message..." : "Connecting..."}
+                                            disabled={!isSocketReady}
+                                            rows={1}
+                                            style={{
+                                                flex: 1,
+                                                resize: 'none',
+                                                backgroundColor: 'transparent',
+                                                border: 'none',
+                                                color: isSocketReady ? theme.text : theme.textSecondary,
+                                                fontSize: '14px',
+                                                outline: 'none',
+                                                fontFamily: 'inherit',
+                                                maxHeight: '80px',
+                                                padding: '6px 0',
+                                                lineHeight: '1.4',
+                                            }}
+                                        />
+                                        <button
+                                            onClick={sendChatMessage}
+                                            disabled={!chatText.trim() || !isSocketReady}
+                                            style={{
+                                                backgroundColor: (chatText.trim() && isSocketReady) ? theme.accent : theme.border,
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '8px 12px',
+                                                cursor: (chatText.trim() && isSocketReady) ? 'pointer' : 'not-allowed',
+                                                color: (chatText.trim() && isSocketReady) ? '#000' : theme.textSecondary,
+                                                fontSize: '12px',
+                                                fontWeight: 'bold',
+                                                transition: 'all 0.2s ease',
+                                            }}
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                    <div
+                                        style={{
+                                            fontSize: '11px',
+                                            color: theme.textSecondary,
+                                            textAlign: 'center',
+                                            marginTop: '8px',
+                                        }}
+                                    >
+                                        Press Enter to send • Shift+Enter for new line
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            /* AI Assistant Panel */
+                            <AIAssistant
+                                roomId={roomId}
+                                username={username}
+                                socketRef={socketRef}
+                                isSocketReady={isSocketReady}
+                                theme={theme}
+                                currentCode={editorRef.current ? editorRef.current.getValue() : ''}
+                                currentLanguage={language}
+                                aiMessages={aiMessages}
+                                setAiMessages={setAiMessages}
                             />
-                            <button
-                                onClick={sendChatMessage}
-                                disabled={!chatText.trim() || !isSocketReady}
-                                style={{
-                                    backgroundColor: (chatText.trim() && isSocketReady) ? theme.accent : theme.border,
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '8px 12px',
-                                    cursor: (chatText.trim() && isSocketReady) ? 'pointer' : 'not-allowed',
-                                    color: (chatText.trim() && isSocketReady) ? '#000' : theme.textSecondary,
-                                    fontSize: '12px',
-                                    fontWeight: 'bold',
-                                    transition: 'all 0.2s ease',
-                                }}
-                            >
-                                Send
-                            </button>
-                        </div>
-                        <div
-                            style={{
-                                fontSize: '11px',
-                                color: theme.textSecondary,
-                                textAlign: 'center',
-                                marginTop: '8px',
-                            }}
-                        >
-                            Press Enter to send • Shift+Enter for new line
-                        </div>
+                        )}
                     </div>
                 </div>
             )}

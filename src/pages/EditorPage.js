@@ -21,6 +21,8 @@ const EditorPage = () => {
     const [isConnecting, setIsConnecting] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
 
+    
+
     useEffect(() => {
         const init = async () => {
             setIsConnecting(true);
