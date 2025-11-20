@@ -103,7 +103,18 @@ const AIAssistant = ({
 
     // Send to AI API
     try {
-      const response = await fetch('/api/ai-chat', {
+  // Get the correct backend URL for production
+  const getBackendUrl = () => {
+    // If we're in development (localhost)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000';
+    }
+    // If we're in production - REPLACE THIS WITH YOUR ACTUAL RAILWAY URL
+    return 'https://your-app-name.up.railway.app';
+  };
+
+  const backendUrl = getBackendUrl();
+  const response = await fetch(`${backendUrl}/api/ai-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
