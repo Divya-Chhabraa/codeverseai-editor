@@ -110,7 +110,7 @@ const AIAssistant = ({
       return 'http://localhost:5000';
     }
     // If we're in production - REPLACE THIS WITH YOUR ACTUAL RAILWAY URL
-    return 'https://your-app-name.up.railway.app';
+    return 'https://codeverseai-editor-production.up.railway.app/';
   };
 
   const backendUrl = getBackendUrl();
