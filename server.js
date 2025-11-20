@@ -338,7 +338,7 @@ Your expertise spans: system design, algorithms, data structures, web developmen
                 }
             ],
             temperature: 0.7,
-            max_tokens: 300,
+            max_tokens: 3000,
             stream: false
         };
         
