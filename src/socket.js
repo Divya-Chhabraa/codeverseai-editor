@@ -3,16 +3,17 @@ import { io } from 'socket.io-client';
 export const initSocket = async () => {
     const options = {
         'force new connection': true,
-        reconnectionAttempt: 'Infinity',
+        reconnectionAttempts: 'Infinity', // ✅ FIX TYPO: was 'reconnectionAttempt'
         timeout: 10000,
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // ✅ ADD POLLING FALLBACK
+        withCredentials: true, // ✅ ADD CREDENTIALS SUPPORT
     };
     
-    // ✅ SMART URL DETECTION FOR BOTH LOCAL AND DEPLOYED
+    // ✅ KEEP SMART URL DETECTION (this is correct)
     const isBrowser = typeof window !== 'undefined';
     const backendUrl = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? 'http://localhost:5000'  // Local development
-        : 'https://codeverseai-editor-production.up.railway.app'; // Deployed
+        ? 'http://localhost:5000'
+        : 'https://codeverseai-editor-production.up.railway.app';
     
     console.log('🔌 Connecting to backend:', backendUrl, '(Auto-detected)');
     

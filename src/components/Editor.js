@@ -71,6 +71,58 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         };
     }, [socketRef]);
 
+    useEffect(() => {
+    console.log('🔍 DEBUG - Current state:', {
+        isSocketReady,
+        connectionStatus,
+        language,
+        chatMessagesCount: chatMessages.length,
+        chatText
+    });
+}, [isSocketReady, connectionStatus, language, chatMessages.length, chatText]);
+
+    // Add comprehensive socket connection monitoring
+useEffect(() => {
+    if (!socketRef.current) return;
+
+    const socket = socketRef.current;
+
+    const handleConnect = () => {
+        console.log('✅ Socket connected in production');
+        setIsSocketReady(true);
+        setConnectionStatus('connected');
+    };
+
+    const handleDisconnect = () => {
+        console.log('🔌 Socket disconnected in production');
+        setIsSocketReady(false);
+        setConnectionStatus('disconnected');
+    };
+
+    const handleConnectError = (error) => {
+        console.error('❌ Socket connection error:', error);
+        setIsSocketReady(false);
+        setConnectionStatus('error');
+    };
+
+    // Monitor transport upgrades
+    const handleUpgrade = (transport) => {
+        console.log('🔄 Transport upgraded to:', transport.name);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.io.engine?.on('upgrade', handleUpgrade);
+
+    return () => {
+        socket.off('connect', handleConnect);
+        socket.off('disconnect', handleDisconnect);
+        socket.off('connect_error', handleConnectError);
+        socket.io.engine?.off('upgrade', handleUpgrade);
+    };
+}, [socketRef]);
+
 /* ---------------- Initialize CodeMirror (ONCE) ---------------- */
 useEffect(() => {
     console.log('🔧 Initializing CodeMirror...');
@@ -196,19 +248,27 @@ useEffect(() => {
 
         // Handle chat messages
         const handleChatMessage = (message) => {
-            console.log('📨 handleChatMessage triggered:', message);
-            console.log('💬 Current messages before:', chatMessages);
-            
-            setChatMessages((prev) => {
-                if (prev.find(m => m.id === message.id)) {
-                    console.log('🚫 Duplicate message prevented');
-                    return prev;
-                }
-                const newMessages = [...prev, message];
-                console.log('💬 New messages after:', newMessages);
-                return newMessages;
-            });
-        };
+    console.log('📨 handleChatMessage triggered:', message);
+    console.log('💬 Current messages before:', chatMessages.length);
+    
+    setChatMessages((prev) => {
+        // ✅ IMPROVED DUPLICATE DETECTION
+        const isDuplicate = prev.some(m => 
+            m.id === message.id || 
+            (m.text === message.text && 
+             m.sender === message.sender && 
+             Math.abs(m.timestamp - message.timestamp) < 5000) // 5 second window
+        );
+        
+        if (isDuplicate) {
+            console.log('🚫 Duplicate message prevented');
+            return prev;
+        }
+        const newMessages = [...prev, message];
+        console.log('💬 New messages after:', newMessages.length);
+        return newMessages;
+    });
+};
 
         // Handle user joined
         const handleUserJoined = ({ clients, username, socketId }) => {
@@ -289,21 +349,24 @@ useEffect(() => {
 
     /* ---------------- Handle language change ---------------- */
     const handleLanguageChange = (e) => {
-        const newLang = e.target.value;
-        console.log('🌐 User changing language to:', newLang);
-        
-        setLanguage(newLang);
-        
-        if (socketRef.current) {
-            console.log('📡 Emitting language change to socket');
-            socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {
-                roomId,
-                language: newLang,
-            });
-        } else {
-            console.error('❌ Socket not available for language change');
-        }
-    };
+    const newLang = e.target.value;
+    console.log('🌐 User changing language to:', newLang);
+    
+    // Update local state immediately
+    setLanguage(newLang);
+    
+    // ✅ ADD SOCKET READINESS CHECK
+    if (socketRef.current && isSocketReady) {
+        console.log('📡 Emitting language change to socket');
+        socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {
+            roomId,
+            language: newLang,
+        });
+    } else {
+        console.error('❌ Socket not available or not ready for language change');
+        console.log('Socket ready:', isSocketReady, 'Socket exists:', !!socketRef.current);
+    }
+};
 
     /* ---------------- Run code via backend ---------------- */
     const runCode = async () => {
