@@ -81,28 +81,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             : 'https://codeverseai-editor-production.up.railway.app';
     };
 
-    const loadFileFromServer = async () => {
-        try {
-            const backendUrl = getBackendUrl();
-            const res = await fetch(`${backendUrl}/api/file/${roomId}`);
-            if (!res.ok) {
-                console.error('Failed to load file from server');
-                return;
-            }
-            const data = await res.json();
-            if (data && data.success && editorRef.current) {
-                if (data.language) {
-                    setLanguage(data.language);
-                }
-                if (typeof data.content === 'string') {
-                    editorRef.current.setValue(data.content);
-                }
-            }
-        } catch (err) {
-            console.error('Error loading file:', err);
-        }
-    };
-
     const saveFileToServer = async () => {
         if (!editorRef.current) return;
         const content = editorRef.current.getValue();
@@ -190,6 +168,29 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         const currentRoomId = roomId;
         const currentOnCodeChange = onCodeChange;
         const currentIsDarkMode = isDarkMode;
+
+        // MOVE loadFileFromServer INSIDE this useEffect
+        const loadFileFromServer = async () => {
+            try {
+                const backendUrl = getBackendUrl();
+                const res = await fetch(`${backendUrl}/api/file/${currentRoomId}`);
+                if (!res.ok) {
+                    console.error('Failed to load file from server');
+                    return;
+                }
+                const data = await res.json();
+                if (data && data.success && editorRef.current) {
+                    if (data.language) {
+                        setLanguage(data.language);
+                    }
+                    if (typeof data.content === 'string') {
+                        editorRef.current.setValue(data.content);
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading file:', err);
+            }
+        };
         
         setTimeout(() => {
             const textarea = document.getElementById('realtimeEditor');
@@ -218,6 +219,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 }
             });
 
+            // Load initial file content from backend
             if (editorRef.current) {
                 loadFileFromServer();
             }
