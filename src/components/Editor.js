@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Codemirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/dracula.css';
@@ -12,10 +12,20 @@ import ACTIONS from '../Actions';
 import AIAssistant from './AIAssistant';
 import PanelSwitcher from './PanelSwitcher';
 
+/* ---------------- GLOBAL BACKEND URL HELPER ---------------- */
+const getBackendUrl = () => {
+    const isLocalhost =
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1';
+    return isLocalhost
+        ? 'http://localhost:5000'
+        : 'https://codeverseai-editor-production.up.railway.app';
+};
+
 const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const editorRef = useRef(null);
     const [output, setOutput] = useState('');
-       const [isRunning, setIsRunning] = useState(false);
+    const [isRunning, setIsRunning] = useState(false);
     const [language, setLanguage] = useState('javascript');
     const [userInput, setUserInput] = useState('');
     const [isDarkMode, setIsDarkMode] = useState(true);
@@ -36,18 +46,10 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);
     const [initialOutputReceived, setInitialOutputReceived] = useState(false);
 
-    /* ---------------- BACKEND URL + FILE LOAD/SAVE HELPERS ---------------- */
+    /* ---------------- FILE LOAD/SAVE HELPERS ---------------- */
 
-    const getBackendUrl = () => {
-        const isLocalhost =
-            window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1';
-        return isLocalhost
-            ? 'http://localhost:5000'
-            : 'https://codeverseai-editor-production.up.railway.app';
-    };
-
-    const loadFileFromServer = async () => {
+    const loadFileFromServer = useCallback(async () => {
+        if (!roomId || !editorRef.current) return;
         try {
             const backendUrl = getBackendUrl();
             const res = await fetch(`${backendUrl}/api/file/${roomId}`);
@@ -67,10 +69,10 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         } catch (err) {
             console.error('Error loading file:', err);
         }
-    };
+    }, [roomId]);
 
     const saveFileToServer = async () => {
-        if (!editorRef.current) return;
+        if (!editorRef.current || !roomId) return;
         const content = editorRef.current.getValue();
         try {
             const backendUrl = getBackendUrl();
@@ -99,11 +101,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
         const socket = socketRef.current;
 
-        // Set initial connection state
         setIsSocketReady(socket.connected);
         setConnectionStatus(socket.connected ? 'connected' : 'connecting');
 
-        // Listen for connection status changes
         const handleConnect = () => {
             setIsSocketReady(true);
             setConnectionStatus('connected');
@@ -114,7 +114,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             setConnectionStatus('disconnected');
         };
 
-        const handleConnectError = (error) => {
+        const handleConnectError = () => {
             setIsSocketReady(false);
             setConnectionStatus('error');
         };
@@ -171,7 +171,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 lineNumbers: true,
                 lineWrapping: true,
                 scrollbarStyle: 'native',
-                value: ''
+                value: '',
             });
 
             editorRef.current.on('change', (instance, changes) => {
@@ -196,7 +196,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     editorRef.current.refresh();
                 }
             }, 100);
-
         }, 100);
 
         return () => {
@@ -204,7 +203,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 editorRef.current.toTextArea();
             }
         };
-    }, [isDarkMode, onCodeChange, roomId, socketRef]);
+    }, [isDarkMode, onCodeChange, roomId, socketRef, loadFileFromServer]);
 
     /* ---------------- UPDATE CODEMIRROR MODE WHEN LANGUAGE CHANGES ---------------- */
     useEffect(() => {
@@ -241,7 +240,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
         const socket = socketRef.current;
 
-        // Handle incoming code changes from other users
         const handleCodeChange = ({ code }) => {
             if (!editorRef.current) return;
 
@@ -257,12 +255,10 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             }
         };
 
-        // Handle language changes from other users
         const handleLanguageChange = ({ language: newLanguage }) => {
             setLanguage(newLanguage);
         };
 
-        // Handle output from other users
         const handleRunOutput = ({ output }) => {
             if (!initialOutputReceived && output) {
                 setOutput(output);
@@ -272,19 +268,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             }
         };
 
-        // Handle input changes from other users
         const handleInputChange = ({ input }) => {
             setUserInput(input);
         };
 
-        // Handle chat messages
         const handleChatMessage = (message) => {
             setChatMessages((prev) => {
-                const isDuplicate = prev.some(m =>
-                    m.id === message.id ||
-                    (m.text === message.text &&
-                        m.sender === message.sender &&
-                        Math.abs(m.timestamp - message.timestamp) < 5000)
+                const isDuplicate = prev.some(
+                    (m) =>
+                        m.id === message.id ||
+                        (m.text === message.text &&
+                            m.sender === message.sender &&
+                            Math.abs(m.timestamp - message.timestamp) < 5000)
                 );
 
                 if (isDuplicate) return prev;
@@ -292,12 +287,14 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             });
         };
 
-        // Handle AI messages
         const handleAiMessage = (message) => {
             setAiMessages((prev) => {
-                const isDuplicate = prev.some(m =>
-                    m.id === message.id ||
-                    (m.text === message.text && m.sender === message.sender && Math.abs(m.timestamp - message.timestamp) < 5000)
+                const isDuplicate = prev.some(
+                    (m) =>
+                        m.id === message.id ||
+                        (m.text === message.text &&
+                            m.sender === message.sender &&
+                            Math.abs(m.timestamp - message.timestamp) < 5000)
                 );
 
                 if (isDuplicate) return prev;
@@ -305,38 +302,40 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             });
         };
 
-        // Handle AI history sync
         const handleAiHistorySync = ({ messages }) => {
             if (aiMessages.length <= 1) {
                 setAiMessages(messages);
             }
         };
 
-        // Add welcome message only if no messages exist
         if (chatMessages.length === 0) {
             const welcomeMessage = {
                 id: Date.now(),
                 text: 'Welcome to CodeVerse AI! Start coding collaboratively...',
                 sender: 'System',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                time: new Date().toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                }),
             };
             setChatMessages([welcomeMessage]);
         }
 
-        // Add AI welcome message only if no AI messages exist
         if (aiMessages.length === 0) {
             const aiWelcomeMessage = {
                 id: Date.now() + 1,
                 text: "Hello! I'm your AI coding assistant. I can help explain code, debug issues, suggest improvements, and answer programming questions. What would you like to know?",
                 sender: 'AI Assistant',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                time: new Date().toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                }),
                 timestamp: Date.now(),
-                isAi: true
+                isAi: true,
             };
             setAiMessages([aiWelcomeMessage]);
         }
 
-        // Set up all event listeners
         socket.on(ACTIONS.CODE_CHANGE, handleCodeChange);
         socket.on(ACTIONS.LANGUAGE_CHANGE, handleLanguageChange);
         socket.on(ACTIONS.RUN_OUTPUT, handleRunOutput);
@@ -345,7 +344,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         socket.on(ACTIONS.AI_MESSAGE, handleAiMessage);
         socket.on(ACTIONS.AI_HISTORY_SYNC, handleAiHistorySync);
 
-        // Cleanup
         return () => {
             socket.off(ACTIONS.CODE_CHANGE, handleCodeChange);
             socket.off(ACTIONS.LANGUAGE_CHANGE, handleLanguageChange);
@@ -355,21 +353,27 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             socket.off(ACTIONS.AI_MESSAGE, handleAiMessage);
             socket.off(ACTIONS.AI_HISTORY_SYNC, handleAiHistorySync);
         };
-    }, [socketRef, chatMessages, username, aiMessages.length, roomId, isSocketReady, initialCodeReceived, initialOutputReceived]);
+    }, [
+        socketRef,
+        chatMessages,
+        username,
+        aiMessages.length,
+        roomId,
+        isSocketReady,
+        initialCodeReceived,
+        initialOutputReceived,
+    ]);
 
-    // 👇 REQUEST AI HISTORY WHEN SWITCHING TO AI PANEL
     useEffect(() => {
         if (activePanel === 'assistant' && socketRef.current && isSocketReady && roomId) {
             socketRef.current.emit(ACTIONS.AI_HISTORY_REQUEST, { roomId });
         }
     }, [activePanel, socketRef, isSocketReady, roomId]);
 
-    // Auto-scroll to bottom of chat
     useEffect(() => {
-        chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatMessages]);
 
-    // Focus terminal input when it becomes available
     useEffect(() => {
         if (terminalInputRef.current && isTerminalOpen) {
             terminalInputRef.current.focus();
@@ -377,7 +381,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     }, [output, isTerminalOpen]);
 
     /* ---------------- HANDLE LANGUAGE CHANGE ---------------- */
-    const handleLanguageChange = (e) => {
+    const handleLanguageChangeSelect = (e) => {
         const newLang = e.target.value;
         setLanguage(newLang);
 
@@ -434,20 +438,19 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         }
     };
 
-    /* ---------------- Chat input handler ---------------- */
+    /* ---------------- Chat handlers ---------------- */
     const handleChatInputChange = (e) => {
         setChatText(e.target.value);
     };
 
-    /* ---------------- Chat send handler ---------------- */
     const sendChatMessage = () => {
         if (!chatText.trim() || !socketRef.current || !isSocketReady) return;
 
         const messageData = {
             roomId,
             message: {
-                text: chatText.trim()
-            }
+                text: chatText.trim(),
+            },
         };
 
         socketRef.current.emit(ACTIONS.CHAT_MESSAGE, messageData);
@@ -461,28 +464,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         }
     };
 
-    /* ---------------- Toggle Dark/Light Mode ---------------- */
-    const toggleDarkMode = () => {
-        setIsDarkMode(!isDarkMode);
-    };
+    /* ---------------- Toggles ---------------- */
+    const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
+    const toggleChat = () => setIsChatOpen((prev) => !prev);
+    const toggleTerminal = () => setIsTerminalOpen((prev) => !prev);
 
-    /* ---------------- Toggle Chat Visibility ---------------- */
-    const toggleChat = () => {
-        setIsChatOpen(!isChatOpen);
-    };
-
-    /* ---------------- Toggle Terminal Visibility ---------------- */
-    const toggleTerminal = () => {
-        setIsTerminalOpen(!isTerminalOpen);
-    };
-
-    /* ---------------- Handle Terminal Input ---------------- */
+    /* ---------------- Terminal input ---------------- */
     const handleTerminalInput = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             const input = e.target.value;
             if (input.trim()) {
-                setOutput(prev => prev + `\n> ${input}`);
+                setOutput((prev) => prev + `\n> ${input}`);
                 setUserInput(input);
                 e.target.value = '';
 
@@ -493,13 +486,27 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         }
     };
 
-    /* ---------------- Clear Terminal ---------------- */
     const clearTerminal = () => {
         setOutput('');
         setUserInput('');
     };
 
     /* ---------------- Chat Message Component ---------------- */
+    const theme = {
+        background: isDarkMode ? '#1e1f29' : '#f8f9fa',
+        surface: isDarkMode ? '#282a36' : '#ffffff',
+        surfaceSecondary: isDarkMode ? '#2d303d' : '#f1f3f5',
+        text: isDarkMode ? '#f8f8f2' : '#2f3542',
+        textSecondary: isDarkMode ? '#bd93f9' : '#747d8c',
+        border: isDarkMode ? '#44475a' : '#dee2e6',
+        accent: '#61dafb',
+        success: '#50fa7b',
+        terminalBg: isDarkMode ? '#0e1119' : '#ffffff',
+        terminalText: isDarkMode ? '#f8f8f2' : '#2f3542',
+        chatBg: isDarkMode ? '#1e1f29' : '#ffffff',
+        chatSurface: isDarkMode ? '#282a36' : '#f8f9fa',
+    };
+
     const ChatMessage = ({ message }) => {
         const isMe = message.sender === username;
 
@@ -534,7 +541,14 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         }}
                     >
                         {!isMe && (
-                            <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '2px', color: theme.accent }}>
+                            <div
+                                style={{
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    marginBottom: '2px',
+                                    color: theme.accent,
+                                }}
+                            >
                                 {message.sender}
                             </div>
                         )}
@@ -559,22 +573,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         );
     };
 
-    // Theme variables
-    const theme = {
-        background: isDarkMode ? '#1e1f29' : '#f8f9fa',
-        surface: isDarkMode ? '#282a36' : '#ffffff',
-        surfaceSecondary: isDarkMode ? '#2d303d' : '#f1f3f5',
-        text: isDarkMode ? '#f8f8f2' : '#2f3542',
-        textSecondary: isDarkMode ? '#bd93f9' : '#747d8c',
-        border: isDarkMode ? '#44475a' : '#dee2e6',
-        accent: '#61dafb',
-        success: '#50fa7b',
-        terminalBg: isDarkMode ? '#0e1119' : '#ffffff',
-        terminalText: isDarkMode ? '#f8f8f2' : '#2f3542',
-        chatBg: isDarkMode ? '#1e1f29' : '#ffffff',
-        chatSurface: isDarkMode ? '#282a36' : '#f8f9fa',
-    };
-
     return (
         <div
             style={{
@@ -583,7 +581,8 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 backgroundColor: theme.background,
                 color: theme.text,
                 overflow: 'hidden',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                fontFamily:
+                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
         >
             {/* MAIN AREA (editor + terminal) */}
@@ -608,18 +607,32 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                            fontSize: '14px',
-                            color: connectionStatus === 'connected' ? theme.success :
-                                connectionStatus === 'connecting' ? '#ffa500' : '#ff4757',
-                            backgroundColor: `${connectionStatus === 'connected' ? theme.success :
-                                connectionStatus === 'connecting' ? '#ffa500' : '#ff4757'}20`,
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            fontWeight: '500',
-                        }}>
-                            {connectionStatus === 'connected' ? '🟢 Connected' :
-                                connectionStatus === 'connecting' ? '🟡 Connecting...' : '🔴 Disconnected'}
+                        <div
+                            style={{
+                                fontSize: '14px',
+                                color:
+                                    connectionStatus === 'connected'
+                                        ? theme.success
+                                        : connectionStatus === 'connecting'
+                                        ? '#ffa500'
+                                        : '#ff4757',
+                                backgroundColor: `${
+                                    connectionStatus === 'connected'
+                                        ? theme.success
+                                        : connectionStatus === 'connecting'
+                                        ? '#ffa500'
+                                        : '#ff4757'
+                                }20`,
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontWeight: '500',
+                            }}
+                        >
+                            {connectionStatus === 'connected'
+                                ? '🟢 Connected'
+                                : connectionStatus === 'connecting'
+                                ? '🟡 Connecting...'
+                                : '🔴 Disconnected'}
                         </div>
 
                         <div
@@ -639,7 +652,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <select
                             value={language}
-                            onChange={handleLanguageChange}
+                            onChange={handleLanguageChangeSelect}
                             style={{
                                 backgroundColor: theme.surfaceSecondary,
                                 color: theme.text,
@@ -779,28 +792,37 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         >
                             {isRunning ? (
                                 <>
-                                    <div style={{ width: '12px', height: '12px', border: '2px solid transparent', borderTop: '2px solid #000', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                    <div
+                                        style={{
+                                            width: '12px',
+                                            height: '12px',
+                                            border: '2px solid transparent',
+                                            borderTop: '2px solid #000',
+                                            borderRadius: '50%',
+                                            animation: 'spin 1s linear infinite',
+                                        }}
+                                    />
                                     Running...
                                 </>
                             ) : (
-                                <>
-                                    ▶ Run
-                                </>
+                                <>▶ Run</>
                             )}
                         </button>
                     </div>
                 </div>
 
-                {/* Editor - Scrollable with Real-time Sync */}
-                <div style={{
-                    flex: 1,
-                    overflow: 'auto',
-                    position: 'relative',
-                }}>
+                {/* Editor */}
+                <div
+                    style={{
+                        flex: 1,
+                        overflow: 'auto',
+                        position: 'relative',
+                    }}
+                >
                     <textarea id="realtimeEditor"></textarea>
                 </div>
 
-                {/* COLLAPSIBLE TERMINAL */}
+                {/* Terminal */}
                 {isTerminalOpen && (
                     <div
                         style={{
@@ -907,14 +929,10 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             >
                                 {output ? (
                                     <div>
-                                        <div style={{ marginBottom: '8px' }}>
-                                            {output}
-                                        </div>
+                                        <div style={{ marginBottom: '8px' }}>{output}</div>
                                     </div>
                                 ) : (
-                                    <div style={{ color: theme.textSecondary }}>
-                                        {/* Terminal will show output here after running code */}
-                                    </div>
+                                    <div style={{ color: theme.textSecondary }} />
                                 )}
                             </div>
 
@@ -959,7 +977,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 )}
             </div>
 
-            {/* RIGHT PANEL - Switches between Chat and AI Assistant */}
+            {/* RIGHT PANEL */}
             {isChatOpen && (
                 <div
                     style={{
@@ -972,7 +990,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         transition: 'all 0.3s ease',
                     }}
                 >
-                    {/* Panel Switcher */}
                     <PanelSwitcher
                         activePanel={activePanel}
                         setActivePanel={setActivePanel}
@@ -981,7 +998,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         aiMessages={aiMessages}
                     />
 
-                    {/* Close Button */}
                     <div
                         style={{
                             padding: '12px 20px',
@@ -993,10 +1009,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         }}
                     >
                         <div style={{ fontSize: '12px', color: theme.textSecondary }}>
-                            {activePanel === 'chat' ?
-                                `${chatMessages.length - 1} messages • Online` :
-                                `${aiMessages.length - 1} AI conversations`
-                            }
+                            {activePanel === 'chat'
+                                ? `${chatMessages.length - 1} messages • Online`
+                                : `${aiMessages.length - 1} AI conversations`}
                         </div>
                         <button
                             onClick={toggleChat}
@@ -1018,14 +1033,15 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         </button>
                     </div>
 
-                    {/* Dynamic Panel Content */}
-                    <div style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden',
-                        minHeight: 0,
-                    }}>
+                    <div
+                        style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            minHeight: 0,
+                        }}
+                    >
                         {activePanel === 'chat' ? (
                             <>
                                 <div
@@ -1081,7 +1097,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                             value={chatText}
                                             onChange={handleChatInputChange}
                                             onKeyDown={handleChatKeyDown}
-                                            placeholder={isSocketReady ? "Type a message..." : "Connecting..."}
+                                            placeholder={
+                                                isSocketReady ? 'Type a message...' : 'Connecting...'
+                                            }
                                             disabled={!isSocketReady}
                                             rows={1}
                                             style={{
@@ -1089,7 +1107,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                                 resize: 'none',
                                                 backgroundColor: 'transparent',
                                                 border: 'none',
-                                                color: isSocketReady ? theme.text : theme.textSecondary,
+                                                color: isSocketReady
+                                                    ? theme.text
+                                                    : theme.textSecondary,
                                                 fontSize: '14px',
                                                 outline: 'none',
                                                 fontFamily: 'inherit',
@@ -1102,12 +1122,21 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                             onClick={sendChatMessage}
                                             disabled={!chatText.trim() || !isSocketReady}
                                             style={{
-                                                backgroundColor: (chatText.trim() && isSocketReady) ? theme.accent : theme.border,
+                                                backgroundColor:
+                                                    chatText.trim() && isSocketReady
+                                                        ? theme.accent
+                                                        : theme.border,
                                                 border: 'none',
                                                 borderRadius: '6px',
                                                 padding: '8px 12px',
-                                                cursor: (chatText.trim() && isSocketReady) ? 'pointer' : 'not-allowed',
-                                                color: (chatText.trim() && isSocketReady) ? '#000' : theme.textSecondary,
+                                                cursor:
+                                                    chatText.trim() && isSocketReady
+                                                        ? 'pointer'
+                                                        : 'not-allowed',
+                                                color:
+                                                    chatText.trim() && isSocketReady
+                                                        ? '#000'
+                                                        : theme.textSecondary,
                                                 fontSize: '12px',
                                                 fontWeight: 'bold',
                                                 transition: 'all 0.2s ease',
@@ -1135,7 +1164,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 socketRef={socketRef}
                                 isSocketReady={isSocketReady}
                                 theme={theme}
-                                currentCode={editorRef.current ? editorRef.current.getValue() : ''}
+                                currentCode={
+                                    editorRef.current ? editorRef.current.getValue() : ''
+                                }
                                 currentLanguage={language}
                                 aiMessages={aiMessages}
                                 setAiMessages={setAiMessages}
