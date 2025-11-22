@@ -21,9 +21,22 @@ const EditorPage = () => {
     const [isConnecting, setIsConnecting] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
 
-    
+    // 🔹 Get username from query params as fallback
+    const searchParams = new URLSearchParams(location.search);
+    const usernameFromQuery = searchParams.get('username') || '';
+
+    // Final username coming either from Home (state) or dashboard (query)
+    const username =
+        (location.state && location.state.username) || usernameFromQuery;
 
     useEffect(() => {
+        // If we don't have a username, don't try to init socket
+        if (!username) {
+            setIsConnecting(false);
+            setConnectionError(false);
+            return;
+        }
+
         const init = async () => {
             setIsConnecting(true);
             setConnectionError(false);
@@ -31,7 +44,7 @@ const EditorPage = () => {
             try {
                 console.log('🚀 Initializing socket connection...');
                 socketRef.current = await initSocket();
-                
+
                 // Connection event handlers
                 socketRef.current.on('connect', () => {
                     console.log('✅ Socket connected successfully!');
@@ -68,19 +81,19 @@ const EditorPage = () => {
                     }, 2000);
                 }
 
-                // Join room after successful connection
+                // 🔹 JOIN room using the resolved username
                 socketRef.current.emit(ACTIONS.JOIN, {
                     roomId,
-                    username: location.state?.username,
+                    username: username,
                 });
 
                 // Listening for joined event
                 socketRef.current.on(
                     ACTIONS.JOINED,
-                    ({ clients, username, socketId }) => {
-                        if (username !== location.state?.username) {
-                            toast.success(`${username} joined the room.`);
-                            console.log(`${username} joined`);
+                    ({ clients, username: joinedUser, socketId }) => {
+                        if (joinedUser !== username) {
+                            toast.success(`${joinedUser} joined the room.`);
+                            console.log(`${joinedUser} joined`);
                         }
                         setClients(clients);
                         socketRef.current.emit(ACTIONS.SYNC_CODE, {
@@ -93,8 +106,8 @@ const EditorPage = () => {
                 // Listening for disconnected
                 socketRef.current.on(
                     ACTIONS.DISCONNECTED,
-                    ({ socketId, username }) => {
-                        toast.success(`${username} left the room.`);
+                    ({ socketId, username: leftUser }) => {
+                        toast.success(`${leftUser} left the room.`);
                         setClients((prev) => {
                             return prev.filter(
                                 (client) => client.socketId !== socketId
@@ -102,7 +115,6 @@ const EditorPage = () => {
                         });
                     }
                 );
-
             } catch (error) {
                 console.error('❌ Failed to initialize socket:', error);
                 setIsConnecting(false);
@@ -125,32 +137,46 @@ const EditorPage = () => {
                 socketRef.current.off('disconnect');
             }
         };
-    }, []);
+    }, [roomId, username, reactNavigator]);
+
+    // If we have no username at all, THEN redirect to Home
+    if (!username) {
+        return <Navigate to="/" />;
+    }
 
     // Show loading/connection state
     if (isConnecting) {
         return (
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '100vh',
-                flexDirection: 'column',
-                gap: '20px',
-                backgroundColor: '#1e1f29',
-                color: '#f8f8f2',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-            }}>
-                <div style={{ 
-                    width: '50px', 
-                    height: '50px', 
-                    border: '4px solid #44475a', 
-                    borderTop: '4px solid #61dafb', 
-                    borderRadius: '50%', 
-                    animation: 'spin 1s linear infinite' 
-                }}></div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>Connecting to Room...</div>
-                <div style={{ fontSize: '14px', color: '#bd93f9' }}>Room ID: {roomId}</div>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100vh',
+                    flexDirection: 'column',
+                    gap: '20px',
+                    backgroundColor: '#1e1f29',
+                    color: '#f8f8f2',
+                    fontFamily:
+                        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                }}
+            >
+                <div
+                    style={{
+                        width: '50px',
+                        height: '50px',
+                        border: '4px solid #44475a',
+                        borderTop: '4px solid #61dafb',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                    }}
+                ></div>
+                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                    Connecting to Room...
+                </div>
+                <div
+                    style={{ fontSize: '14px', color: '#bd93f9' }}
+                >{`Room ID: ${roomId}`}</div>
                 <style>
                     {`
                     @keyframes spin {
@@ -166,23 +192,41 @@ const EditorPage = () => {
     // Show connection error state
     if (connectionError) {
         return (
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '100vh',
-                flexDirection: 'column',
-                gap: '20px',
-                backgroundColor: '#1e1f29',
-                color: '#f8f8f2',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-            }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100vh',
+                    flexDirection: 'column',
+                    gap: '20px',
+                    backgroundColor: '#1e1f29',
+                    color: '#f8f8f2',
+                    fontFamily:
+                        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                }}
+            >
                 <div style={{ fontSize: '48px' }}>🔌</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff5555' }}>Connection Failed</div>
-                <div style={{ fontSize: '16px', textAlign: 'center', maxWidth: '400px' }}>
-                    Unable to connect to the server. Please check your internet connection and try again.
+                <div
+                    style={{
+                        fontSize: '24px',
+                        fontWeight: 'bold',
+                        color: '#ff5555',
+                    }}
+                >
+                    Connection Failed
                 </div>
-                <button 
+                <div
+                    style={{
+                        fontSize: '16px',
+                        textAlign: 'center',
+                        maxWidth: '400px',
+                    }}
+                >
+                    Unable to connect to the server. Please check your internet
+                    connection and try again.
+                </div>
+                <button
                     onClick={() => window.location.reload()}
                     style={{
                         padding: '12px 24px',
@@ -193,12 +237,12 @@ const EditorPage = () => {
                         fontWeight: 'bold',
                         color: '#000',
                         fontSize: '14px',
-                        marginTop: '10px'
+                        marginTop: '10px',
                     }}
                 >
                     🔄 Retry Connection
                 </button>
-                <button 
+                <button
                     onClick={() => reactNavigator('/')}
                     style={{
                         padding: '12px 24px',
@@ -208,17 +252,13 @@ const EditorPage = () => {
                         cursor: 'pointer',
                         fontWeight: 'bold',
                         color: '#ff5555',
-                        fontSize: '14px'
+                        fontSize: '14px',
                     }}
                 >
                     🏠 Return Home
                 </button>
             </div>
         );
-    }
-
-    if (!location.state) {
-        return <Navigate to="/" />;
     }
 
     async function copyRoomId() {
@@ -236,119 +276,159 @@ const EditorPage = () => {
     }
 
     return (
-        <div style={{ 
-            display: 'flex', 
-            height: '100vh', 
-            backgroundColor: '#1e1f29',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        }}>
-            {/* Left Sidebar - Reduced Width */}
-            <div style={{
-                width: '220px',
-                backgroundColor: '#282a36',
-                borderRight: '1px solid #44475a',
+        <div
+            style={{
                 display: 'flex',
-                flexDirection: 'column',
-                padding: '16px',
-                color: '#f8f8f2'
-            }}>
-                <div style={{
-                    textAlign: 'center',
-                    marginBottom: '10px',
-                    paddingBottom: '16px',
-                   
-                }}>
-                    <div style={{
-                        fontSize: '30px',
-                        fontWeight: 'bold',
-                        background: 'linear-gradient(135deg, #61dafb, #bd93f9)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        marginBottom: '6px'
-                    }}>
+                height: '100vh',
+                backgroundColor: '#1e1f29',
+                fontFamily:
+                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
+        >
+            {/* Left Sidebar - Reduced Width */}
+            <div
+                style={{
+                    width: '220px',
+                    backgroundColor: '#282a36',
+                    borderRight: '1px solid #44475a',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '16px',
+                    color: '#f8f8f2',
+                }}
+            >
+                <div
+                    style={{
+                        textAlign: 'center',
+                        marginBottom: '10px',
+                        paddingBottom: '16px',
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: '30px',
+                            fontWeight: 'bold',
+                            background:
+                                'linear-gradient(135deg, #61dafb, #bd93f9)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            marginBottom: '6px',
+                        }}
+                    >
                         CodeVerse AI
                     </div>
-                    <div style={{
-                        fontSize: '14px',
-                        color: '#bd93f9',
-                        fontWeight:'500'
-                    }}>
+                    <div
+                        style={{
+                            fontSize: '14px',
+                            color: '#bd93f9',
+                            fontWeight: '500',
+                        }}
+                    >
                         Collaborative Code Editor
                     </div>
                 </div>
 
                 {/* Connection Status */}
-                <div style={{
-                    backgroundColor: '#50fa7b20',
-                    border: '1px solid #50fa7b',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    marginBottom: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                }}>
-                    <div style={{
-                        width: '8px',
-                        height: '8px',
-                        backgroundColor: '#50fa7b',
-                        borderRadius: '50%',
-                        animation: 'pulse 2s infinite'
-                    }}></div>
-                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#50fa7b' }}>
+                <div
+                    style={{
+                        backgroundColor: '#50fa7b20',
+                        border: '1px solid #50fa7b',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                    }}
+                >
+                    <div
+                        style={{
+                            width: '8px',
+                            height: '8px',
+                            backgroundColor: '#50fa7b',
+                            borderRadius: '50%',
+                            animation: 'pulse 2s infinite',
+                        }}
+                    ></div>
+                    <div
+                        style={{
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            color: '#50fa7b',
+                        }}
+                    >
                         Connected
                     </div>
                 </div>
 
                 {/* Room Info */}
-                <div style={{
-                    backgroundColor: '#44475a',
-                    padding: '10px',
-                    borderRadius: '6px',
-                    marginBottom: '16px'
-                }}>
-                    <div style={{ fontSize: '11px', color: '#bd93f9', marginBottom: '4px' }}>Room ID</div>
-                    <div style={{ 
-                        fontSize: '12px', 
-                        fontWeight: 'bold',
-                        fontFamily: 'Monaco, "Courier New", monospace',
-                        wordBreak: 'break-all'
-                    }}>
+                <div
+                    style={{
+                        backgroundColor: '#44475a',
+                        padding: '10px',
+                        borderRadius: '6px',
+                        marginBottom: '16px',
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: '11px',
+                            color: '#bd93f9',
+                            marginBottom: '4px',
+                        }}
+                    >
+                        Room ID
+                    </div>
+                    <div
+                        style={{
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            fontFamily: 'Monaco, "Courier New", monospace',
+                            wordBreak: 'break-all',
+                        }}
+                    >
                         {roomId}
                     </div>
                 </div>
 
                 {/* Connected Users */}
                 <div style={{ marginBottom: '16px' }}>
-                    <div style={{
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        color: '#61dafb',
-                        marginBottom: '10px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                    }}>
+                    <div
+                        style={{
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                            color: '#61dafb',
+                            marginBottom: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                        }}
+                    >
                         <span>👥 Connected ({clients.length})</span>
                     </div>
                     <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                         {clients.map((client) => (
-                            <div key={client.socketId} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '6px 8px',
-                                backgroundColor: '#44475a',
-                                borderRadius: '4px',
-                                marginBottom: '4px'
-                            }}>
-                                <div style={{
-                                    width: '6px',
-                                    height: '6px',
-                                    backgroundColor: '#50fa7b',
-                                    borderRadius: '50%'
-                                }}></div>
+                            <div
+                                key={client.socketId}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '6px 8px',
+                                    backgroundColor: '#44475a',
+                                    borderRadius: '4px',
+                                    marginBottom: '4px',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        width: '6px',
+                                        height: '6px',
+                                        backgroundColor: '#50fa7b',
+                                        borderRadius: '50%',
+                                    }}
+                                ></div>
                                 <div style={{ fontSize: '14px' }}>
                                     {client.username}
                                 </div>
@@ -358,8 +438,15 @@ const EditorPage = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <button 
+                <div
+                    style={{
+                        marginTop: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                    }}
+                >
+                    <button
                         onClick={copyRoomId}
                         style={{
                             backgroundColor: 'transparent',
@@ -370,7 +457,7 @@ const EditorPage = () => {
                             cursor: 'pointer',
                             fontWeight: 'bold',
                             fontSize: '12px',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
                         }}
                         onMouseOver={(e) => {
                             e.target.style.backgroundColor = '#61dafb';
@@ -383,7 +470,7 @@ const EditorPage = () => {
                     >
                         📋 Copy ID
                     </button>
-                    <button 
+                    <button
                         onClick={leaveRoom}
                         style={{
                             backgroundColor: 'transparent',
@@ -394,7 +481,7 @@ const EditorPage = () => {
                             cursor: 'pointer',
                             fontWeight: 'bold',
                             fontSize: '12px',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
                         }}
                         onMouseOver={(e) => {
                             e.target.style.backgroundColor = '#ff7979';
@@ -408,13 +495,13 @@ const EditorPage = () => {
             {/* Editor Area */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Editor
-    socketRef={socketRef}
-    roomId={roomId}
-    username={location.state?.username}
-    onCodeChange={(code) => {
-        codeRef.current = code;
-    }}
-/>
+                    socketRef={socketRef}
+                    roomId={roomId}
+                    username={username}
+                    onCodeChange={(code) => {
+                        codeRef.current = code;
+                    }}
+                />
             </div>
 
             <style>

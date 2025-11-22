@@ -15,7 +15,7 @@ import PanelSwitcher from './PanelSwitcher';
 const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const editorRef = useRef(null);
     const [output, setOutput] = useState('');
-    const [isRunning, setIsRunning] = useState(false);
+       const [isRunning, setIsRunning] = useState(false);
     const [language, setLanguage] = useState('javascript');
     const [userInput, setUserInput] = useState('');
     const [isDarkMode, setIsDarkMode] = useState(true);
@@ -31,17 +31,74 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [activePanel, setActivePanel] = useState('chat');
     const [aiMessages, setAiMessages] = useState([]);
-    
+
     // Sync states
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);
     const [initialOutputReceived, setInitialOutputReceived] = useState(false);
+
+    /* ---------------- BACKEND URL + FILE LOAD/SAVE HELPERS ---------------- */
+
+    const getBackendUrl = () => {
+        const isLocalhost =
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1';
+        return isLocalhost
+            ? 'http://localhost:5000'
+            : 'https://codeverseai-editor-production.up.railway.app';
+    };
+
+    const loadFileFromServer = async () => {
+        try {
+            const backendUrl = getBackendUrl();
+            const res = await fetch(`${backendUrl}/api/file/${roomId}`);
+            if (!res.ok) {
+                console.error('Failed to load file from server');
+                return;
+            }
+            const data = await res.json();
+            if (data && data.success && editorRef.current) {
+                if (data.language) {
+                    setLanguage(data.language);
+                }
+                if (typeof data.content === 'string') {
+                    editorRef.current.setValue(data.content);
+                }
+            }
+        } catch (err) {
+            console.error('Error loading file:', err);
+        }
+    };
+
+    const saveFileToServer = async () => {
+        if (!editorRef.current) return;
+        const content = editorRef.current.getValue();
+        try {
+            const backendUrl = getBackendUrl();
+            const res = await fetch(`${backendUrl}/api/file/${roomId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content,
+                    language,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                console.log('File saved successfully');
+            } else {
+                console.error('Save failed:', data.error);
+            }
+        } catch (err) {
+            console.error('Error saving file:', err);
+        }
+    };
 
     /* ---------------- COMBINED SOCKET CONNECTION MONITORING ---------------- */
     useEffect(() => {
         if (!socketRef.current) return;
 
         const socket = socketRef.current;
-        
+
         // Set initial connection state
         setIsSocketReady(socket.connected);
         setConnectionStatus(socket.connected ? 'connected' : 'connecting');
@@ -77,12 +134,12 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     useEffect(() => {
         if (isSocketReady && socketRef.current && roomId && !initialCodeReceived) {
             socketRef.current.emit(ACTIONS.SYNC_CODE_REQUEST, { roomId });
-            
+
             const timeoutId = setTimeout(() => {
                 setInitialCodeReceived(true);
                 setInitialOutputReceived(true);
             }, 2000);
-            
+
             return () => clearTimeout(timeoutId);
         }
     }, [isSocketReady, socketRef, roomId, initialCodeReceived]);
@@ -101,7 +158,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         const currentRoomId = roomId;
         const currentOnCodeChange = onCodeChange;
         const currentIsDarkMode = isDarkMode;
-        
+
         setTimeout(() => {
             const textarea = document.getElementById('realtimeEditor');
             if (!textarea) return;
@@ -114,7 +171,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 lineNumbers: true,
                 lineWrapping: true,
                 scrollbarStyle: 'native',
-                value: ""
+                value: ''
             });
 
             editorRef.current.on('change', (instance, changes) => {
@@ -128,6 +185,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     });
                 }
             });
+
+            // Load initial file content from backend
+            if (editorRef.current) {
+                loadFileFromServer();
+            }
 
             setTimeout(() => {
                 if (editorRef.current) {
@@ -147,9 +209,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     /* ---------------- UPDATE CODEMIRROR MODE WHEN LANGUAGE CHANGES ---------------- */
     useEffect(() => {
         if (!editorRef.current) return;
-        
+
         let mode;
-        switch(language) {
+        switch (language) {
             case 'javascript':
                 mode = 'javascript';
                 break;
@@ -163,7 +225,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             default:
                 mode = 'javascript';
         }
-        
+
         editorRef.current.setOption('mode', mode);
     }, [language]);
 
@@ -182,9 +244,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         // Handle incoming code changes from other users
         const handleCodeChange = ({ code }) => {
             if (!editorRef.current) return;
-            
+
             const currentCode = editorRef.current.getValue();
-            
+
             if (code !== null && code !== currentCode) {
                 if (!initialCodeReceived) {
                     editorRef.current.setValue(code);
@@ -218,13 +280,13 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         // Handle chat messages
         const handleChatMessage = (message) => {
             setChatMessages((prev) => {
-                const isDuplicate = prev.some(m => 
-                    m.id === message.id || 
-                    (m.text === message.text && 
-                     m.sender === message.sender && 
-                     Math.abs(m.timestamp - message.timestamp) < 5000)
+                const isDuplicate = prev.some(m =>
+                    m.id === message.id ||
+                    (m.text === message.text &&
+                        m.sender === message.sender &&
+                        Math.abs(m.timestamp - message.timestamp) < 5000)
                 );
-                
+
                 if (isDuplicate) return prev;
                 return [...prev, message];
             });
@@ -233,11 +295,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         // Handle AI messages
         const handleAiMessage = (message) => {
             setAiMessages((prev) => {
-                const isDuplicate = prev.some(m => 
-                    m.id === message.id || 
+                const isDuplicate = prev.some(m =>
+                    m.id === message.id ||
                     (m.text === message.text && m.sender === message.sender && Math.abs(m.timestamp - message.timestamp) < 5000)
                 );
-                
+
                 if (isDuplicate) return prev;
                 return [...prev, message];
             });
@@ -318,7 +380,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const handleLanguageChange = (e) => {
         const newLang = e.target.value;
         setLanguage(newLang);
-        
+
         if (socketRef.current && isSocketReady) {
             socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {
                 roomId,
@@ -335,21 +397,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         const code = editorRef.current.getValue();
 
         try {
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const backendUrl = isLocalhost 
-                ? 'http://localhost:5000'
-                : 'https://codeverseai-editor-production.up.railway.app';
-            
+            const backendUrl = getBackendUrl();
+
             const response = await fetch(`${backendUrl}/run`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language, input: userInput }),
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const result = await response.json();
             const outputText = result.output || result.error || 'No output';
             setOutput(outputText);
@@ -363,7 +422,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         } catch (err) {
             const errorOutput = 'Error running code: ' + err.message;
             setOutput(errorOutput);
-            
+
             if (socketRef.current && isSocketReady) {
                 socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
                     roomId,
@@ -426,7 +485,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 setOutput(prev => prev + `\n> ${input}`);
                 setUserInput(input);
                 e.target.value = '';
-                
+
                 if (editorRef.current) {
                     runCode();
                 }
@@ -443,7 +502,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     /* ---------------- Chat Message Component ---------------- */
     const ChatMessage = ({ message }) => {
         const isMe = message.sender === username;
-        
+
         return (
             <div
                 style={{
@@ -479,11 +538,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 {message.sender}
                             </div>
                         )}
-                        
+
                         <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
                             {message.text}
                         </div>
-                        
+
                         <div
                             style={{
                                 fontSize: '10px',
@@ -551,18 +610,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
                             fontSize: '14px',
-                            color: connectionStatus === 'connected' ? theme.success : 
-                                   connectionStatus === 'connecting' ? '#ffa500' : '#ff4757',
-                            backgroundColor: `${connectionStatus === 'connected' ? theme.success : 
-                                             connectionStatus === 'connecting' ? '#ffa500' : '#ff4757'}20`,
+                            color: connectionStatus === 'connected' ? theme.success :
+                                connectionStatus === 'connecting' ? '#ffa500' : '#ff4757',
+                            backgroundColor: `${connectionStatus === 'connected' ? theme.success :
+                                connectionStatus === 'connecting' ? '#ffa500' : '#ff4757'}20`,
                             padding: '4px 8px',
                             borderRadius: '6px',
                             fontWeight: '500',
                         }}>
-                            {connectionStatus === 'connected' ? '🟢 Connected' : 
-                             connectionStatus === 'connecting' ? '🟡 Connecting...' : '🔴 Disconnected'}
+                            {connectionStatus === 'connected' ? '🟢 Connected' :
+                                connectionStatus === 'connecting' ? '🟡 Connecting...' : '🔴 Disconnected'}
                         </div>
-                        
+
                         <div
                             style={{
                                 fontSize: '14px',
@@ -679,6 +738,27 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             )}
                         </button>
 
+                        {/* SAVE BUTTON */}
+                        <button
+                            onClick={saveFileToServer}
+                            style={{
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                backgroundColor: '#50fa7b',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                color: '#000',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                            }}
+                        >
+                            💾 Save
+                        </button>
+
                         <button
                             onClick={runCode}
                             disabled={isRunning}
@@ -712,8 +792,8 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 </div>
 
                 {/* Editor - Scrollable with Real-time Sync */}
-                <div style={{ 
-                    flex: 1, 
+                <div style={{
+                    flex: 1,
                     overflow: 'auto',
                     position: 'relative',
                 }}>
@@ -893,7 +973,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     }}
                 >
                     {/* Panel Switcher */}
-                    <PanelSwitcher 
+                    <PanelSwitcher
                         activePanel={activePanel}
                         setActivePanel={setActivePanel}
                         theme={theme}
@@ -913,8 +993,8 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         }}
                     >
                         <div style={{ fontSize: '12px', color: theme.textSecondary }}>
-                            {activePanel === 'chat' ? 
-                                `${chatMessages.length - 1} messages • Online` : 
+                            {activePanel === 'chat' ?
+                                `${chatMessages.length - 1} messages • Online` :
                                 `${aiMessages.length - 1} AI conversations`
                             }
                         </div>
@@ -939,27 +1019,25 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     </div>
 
                     {/* Dynamic Panel Content */}
-                   <div style={{ 
-                    flex: 1, 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    minHeight: 0,
-                }}>
-                    {activePanel === 'chat' ? (
-                        /* Original Chat Panel Content */
-                        <>
-                            <div
-                                style={{
-                                    flex: 1,
-                                    overflowY: 'auto',
-                                    backgroundColor: theme.background,
-                                    padding: '12px 0',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    minHeight: 0,
-                                }}
-            
+                    <div style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        minHeight: 0,
+                    }}>
+                        {activePanel === 'chat' ? (
+                            <>
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        overflowY: 'auto',
+                                        backgroundColor: theme.background,
+                                        padding: '12px 0',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        minHeight: 0,
+                                    }}
                                 >
                                     {chatMessages.length === 0 ? (
                                         <div
@@ -1051,7 +1129,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 </div>
                             </>
                         ) : (
-                            /* AI Assistant Panel */
                             <AIAssistant
                                 roomId={roomId}
                                 username={username}
