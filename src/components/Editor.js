@@ -169,7 +169,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         const currentOnCodeChange = onCodeChange;
         const currentIsDarkMode = isDarkMode;
 
-        // MOVE loadFileFromServer INSIDE this useEffect
+        // Define loadFileFromServer INSIDE this useEffect
         const loadFileFromServer = async () => {
             try {
                 const backendUrl = getBackendUrl();
@@ -220,9 +220,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             });
 
             // Load initial file content from backend
-            if (editorRef.current) {
-                loadFileFromServer();
-            }
+            loadFileFromServer();
 
             setTimeout(() => {
                 if (editorRef.current) {
