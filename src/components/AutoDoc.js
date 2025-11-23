@@ -368,19 +368,6 @@ const AutoDoc = ({
       )}
 
 
-      {/* Mode Indicator */}
-      <div style={{
-        marginTop: '16px',
-        padding: '8px',
-        backgroundColor: currentTheme.surfaceSecondary,
-        borderRadius: '4px',
-        fontSize: '11px',
-        textAlign: 'center',
-        color: currentTheme.text,
-        border: `1px solid ${currentTheme.border}`
-      }}>
-        <strong>Mode:</strong> Socket Backend AI
-      </div>
     </div>
   );
 };

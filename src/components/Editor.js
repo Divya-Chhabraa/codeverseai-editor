@@ -1110,11 +1110,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         <div
                         style={{
                             flex: 1,
-                            width: isFullScreen ? '100vw' : '100%',
-                            height: isFullScreen ? '100vh' : 'auto',
                             backgroundColor: theme.terminalBg,
                             position: 'relative',
-                            overflow: 'auto',
+                            overflow: 'hidden',
                             fontFamily: 'Monaco, "Courier New", monospace',
                             fontSize: '13px',
                             zIndex: 9999,
@@ -1129,6 +1127,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                     flexDirection: 'column',
                                     height: '100%',
                                     width: '100%',
+                                    overflow: 'auto',
                                 }}
                             >
                                 {/* ⬇️ Your entire TERMINAL UI code (unchanged) */}
@@ -1284,8 +1283,10 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             <div
                                 style={{
                                     display: activeBottomTab === 'ai' ? 'flex' : 'none',
+                                    flexDirection: 'column',
                                     height: '100%',
                                     width: '100%',
+                                    overflow: 'auto',
                                 }}
                             >
                                 <DebugAssistant 
@@ -1301,9 +1302,17 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             {/* AI DOCUMENTATION */}
                             <div
                                 style={{
-                                    display: activeBottomTab === 'input' ? 'flex' : 'none',
+                                    visibility: activeBottomTab === 'input' ? 'visible' : 'hidden',
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    display: 'flex',
+                                    flexDirection: 'column',
                                     height: '100%',
                                     width: '100%',
+                                    overflow: 'auto',
                                 }}
                             >
                                 <AutoDoc 
@@ -1326,7 +1335,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             </div>
 
             {/* RIGHT PANEL - Switches between Chat and AI Assistant */}
-            {!isFullScreen && isChatOpen && (
+            { isChatOpen && (
                 <div
                     style={{
                         width: '320px',

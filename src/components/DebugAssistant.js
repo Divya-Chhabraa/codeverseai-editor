@@ -79,7 +79,8 @@ Keep response under 200 words.
 
       const data = await response.json();
       const analysis = data.choices[0]?.message?.content || 'No analysis generated.';
-      setDebugResult(analysis);
+      setDebugResult(prev => (prev + analysis));
+
       
     } catch (err) {
       console.error('Debug analysis error:', err);
