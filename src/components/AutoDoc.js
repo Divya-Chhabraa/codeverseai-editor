@@ -10,15 +10,16 @@ const AutoDoc = ({
   socketRef, 
   username, 
   roomId,
-  isSocketReady = false 
+  isSocketReady = false ,
+  terminalFontSize=13
 }) => {
   const [codeInput, setCodeInput] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [documentation, setDocumentation] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
-
-  // ✅ YE WALA LISTENER ZAROOR HONA CHAHIYE
+  
   useEffect(() => {
     if (!socketRef?.current) {
       console.log('❌ No socket ref available');
@@ -87,7 +88,9 @@ const AutoDoc = ({
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(documentation);
-    console.log('📋 Copied to clipboard');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    
   };
 
   const useCurrentEditorCode = () => {
@@ -290,53 +293,80 @@ const AutoDoc = ({
 
       {/* Documentation Output */}
       {documentation && (
-        <div style={{ marginTop: '16px' }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '8px'
-          }}>
-            <h4 style={{
-              margin: 0,
-              fontSize: '14px',
-              fontWeight: 'bold',
-              color: currentTheme.text
-            }}>
-              📚 Generated Documentation:
-            </h4>
-            <button 
-              onClick={copyToClipboard}
-              style={{
-                padding: '4px 8px',
-                border: `1px solid ${currentTheme.border}`,
-                borderRadius: '4px',
-                backgroundColor: currentTheme.surfaceSecondary,
-                color: currentTheme.text,
-                cursor: 'pointer',
-                fontSize: '11px'
-              }}
-            >
-              📋 Copy
-            </button>
-          </div>
-          <pre style={{
-            backgroundColor: currentTheme.surfaceSecondary,
-            padding: '12px',
-            borderRadius: '4px',
+      <div style={{ marginTop: '16px', position: 'relative' }}>
+        {/* Fixed Copy Button */}
+        <button 
+          onClick={copyToClipboard}
+          style={{
+            position: 'absolute',
+            top: '0px',
+            right: '0px',
+            padding: '6px 10px',
             border: `1px solid ${currentTheme.border}`,
-            whiteSpace: 'pre-wrap',
-            fontSize: '12px',
-            fontFamily: 'monospace',
+            borderRadius: '6px',
+            backgroundColor: currentTheme.surfaceSecondary,
             color: currentTheme.text,
-            maxHeight: '300px',
-            overflowY: 'auto',
-            margin: 0
-          }}>
-            {documentation}
-          </pre>
-        </div>
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            zIndex: 10,
+            backdropFilter: 'blur(6px)'
+          }}
+        >
+          📋 Copy
+        </button>
+
+        {/* Copied Popup */}
+        {copied && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '35px',
+              right: '8px',
+              backgroundColor: currentTheme.accent,
+              color: '#000',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              boxShadow: '0px 2px 6px rgba(0,0,0,0.3)',
+              opacity: 1,
+              zIndex: 9
+            }}
+          >
+            ✔ Copied!
+          </div>
+        )}
+
+        <h4 style={{
+          margin: 0,
+          fontSize: '14px',
+          fontWeight: 'bold',
+          color: currentTheme.text,
+          marginBottom: '8px'
+        }}>
+          📚 Generated Documentation:
+        </h4>
+
+        <pre style={{
+          backgroundColor: currentTheme.surfaceSecondary,
+          padding: '12px',
+          borderRadius: '4px',
+          border: `1px solid ${currentTheme.border}`,
+          whiteSpace: 'pre-wrap',
+          fontSize: `${terminalFontSize}px`,
+          fontFamily: 'monospace',
+          color: currentTheme.text,
+          maxHeight: '300px',
+          overflowY: 'auto',
+          margin: 0,
+          paddingRight: '50px'
+        }}>
+          {documentation}
+        </pre>
+      </div>
       )}
+
 
       {/* Mode Indicator */}
       <div style={{

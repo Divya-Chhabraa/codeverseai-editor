@@ -35,7 +35,10 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [isResizing, setIsResizing] = useState(false);
     const [activePanel, setActivePanel] = useState('chat');
     const [aiMessages, setAiMessages] = useState([]);
-    
+    const [terminalFontSize, setTerminalFontSize] = useState([13]);
+    const [copyPopup, setCopyPopup] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
     // Sync states
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);
     const [initialOutputReceived, setInitialOutputReceived] = useState(false);
@@ -88,6 +91,33 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             ? 'http://localhost:5000'
             : 'https://codeverseai-editor-production.up.railway.app';
     };
+    const downloadCodeFile = () => {
+        if (!editorRef.current) return;
+
+        const code = editorRef.current.getValue();
+        if (!code.trim()) {
+            alert("No code to download!");
+            return;
+        }
+
+        const extMap = {
+            javascript: "js",
+            python: "py",
+            cpp: "cpp",
+            java: "java",
+            typescript: "ts",
+        };
+
+        const extension = extMap[language] || "txt";
+        const filename = `code.${extension}`;
+
+        const blob = new Blob([code], { type: "text/plain" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        };
 
     const saveFileToServer = async () => {
         if (!editorRef.current) return;
@@ -809,6 +839,25 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 </span>
                             )}
                         </button>
+                        {/* FULL SCREEN TOGGLE */}
+                        <button
+                            onClick={() => setIsFullScreen(!isFullScreen)}
+                            style={{
+                                padding: '8px',
+                                borderRadius: '8px',
+                                backgroundColor: 'transparent',
+                                border: `1px solid ${theme.border}`,
+                                cursor: 'pointer',
+                                color: theme.text,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '16px',
+                            }}
+                            title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                        >
+                            {isFullScreen ? '📱' : '🖥️'}
+                        </button>
 
                         {/* SAVE BUTTON */}
                         <button
@@ -860,25 +909,52 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 </>
                             )}
                         </button>
+                        <button
+                        onClick={downloadCodeFile}
+                        style={{
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            backgroundColor: theme.accent,
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            color: '#fff',
+                            fontSize: '14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                            transition: 'background-color 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => (e.target.style.backgroundColor = theme.success)}
+                        onMouseLeave={(e) => (e.target.style.backgroundColor = theme.accent)}
+                        >
+                        📥 Download
+                        </button>
+
+
                     </div>
                 </div>
 
                 {/* Editor - Scrollable with Real-time Sync */}
-                <div style={{ 
-                    flex: 1, 
-                    overflow: 'auto',
-                    position: 'relative',
-                }}>
-                    <textarea id="realtimeEditor"></textarea>
-                </div>
+                {!isFullScreen && (
+                    <div style={{ 
+                        flex: 1, 
+                        overflow: 'auto',
+                        position: 'relative',
+                    }}>
+                        <textarea id="realtimeEditor"></textarea>
+                    </div>
+                )}
+                
 
                 {/* COLLAPSIBLE TERMINAL WITH TABS AND RESIZE */}
-                {isTerminalOpen && (
+                {(isTerminalOpen || isFullScreen) && (
                     <div
                         style={{
                             backgroundColor: theme.background,
                             borderTop: `1px solid ${theme.border}`,
-                            height: `${terminalHeight}px`,
+                            height: isFullScreen ? '100vh' : `${terminalHeight}px`,
                             display: 'flex',
                             flexDirection: 'column',
                             transition: 'all 0.3s ease',
@@ -954,27 +1030,47 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                         AI DEBUG ASSISTANT
                                     </button>
                                     <button
-                                    className={`tab ${activeBottomTab === 'input' ? 'active' : ''}`}
-                                    onClick={() => setActiveBottomTab('input')}
-                                    style={{
-                                        padding: '8px 16px',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: theme.text,
-                                        transition: 'background-color 0.2s',
-                                        backgroundColor: activeBottomTab === 'input' ? theme.terminalBg : 'transparent',
-                                        borderBottom: activeBottomTab === 'input' ? `2px solid ${theme.accent}` : 'none',
-                                        fontSize: '12px',
-                                        fontWeight: 'bold',
-                                        flex: 1,
-                                    }}
-                                >
-                                    AI DOCUMENTATION 
-                                </button>
+                                        className={`tab ${activeBottomTab === 'input' ? 'active' : ''}`}
+                                        onClick={() => setActiveBottomTab('input')}
+                                        style={{
+                                            padding: '8px 16px',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: theme.text,
+                                            transition: 'background-color 0.2s',
+                                            backgroundColor: activeBottomTab === 'input' ? theme.terminalBg : 'transparent',
+                                            borderBottom: activeBottomTab === 'input' ? `2px solid ${theme.accent}` : 'none',
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            flex: 1,
+                                        }}
+                                    >
+                                        AI DOCUMENTATION 
+                                    </button>
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px' }}>
+                                {/* FULL SCREEN BUTTON - YEH ADD KARO */}
+                                <button
+                                    onClick={() => setIsFullScreen(!isFullScreen)}
+                                    style={{
+                                        backgroundColor: 'transparent',
+                                        border: 'none',
+                                        color: theme.textSecondary,
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                    }}
+                                    title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                                >
+                                    {isFullScreen ? '📱 Exit Full' : '🖥️ Full Screen'}
+                                </button>
+                                
                                 <button
                                     onClick={clearTerminal}
                                     style={{
@@ -1024,8 +1120,101 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             }}
                         >
                             {/* TERMINAL Tab */}
+                            {/* TERMINAL Tab */}
                             {activeBottomTab === 'terminal' && (
                                 <div className="terminal-output">
+                                    
+                                    <div style={{
+                                    position: 'relative',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '8px 16px',
+                                    backgroundColor: isDarkMode ? '#0a0a0f' : '#f8f9fa',
+                                    borderBottom: `1px solid ${theme.border}`
+                                }}>
+                                    <span style={{ fontSize: '12px', color: theme.textSecondary }}>
+                                        Terminal Output
+                                    </span>
+
+                                    {/* Font Size Controls */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <button
+                                            onClick={() => setTerminalFontSize(size => Math.max(10, size - 1))}
+                                            style={{
+                                                padding: '2px 6px',
+                                                fontSize: '12px',
+                                                borderRadius: '4px',
+                                                border: `1px solid ${theme.border}`,
+                                                backgroundColor: theme.surfaceSecondary,
+                                                color: theme.text,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Size -
+                                        </button>
+                                        <button
+                                            onClick={() => setTerminalFontSize(size => Math.min(40, size + 1))}
+                                            style={{
+                                                padding: '2px 6px',
+                                                fontSize: '12px',
+                                                borderRadius: '4px',
+                                                border: `1px solid ${theme.border}`,
+                                                backgroundColor: theme.surfaceSecondary,
+                                                color: theme.text,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Size +
+                                        </button>
+
+                                        {/* Copy Button */}
+                                        <button
+                                            onClick={() => {
+                                                if (output) {
+                                                    navigator.clipboard.writeText(output);
+                                                    setCopyPopup(true);
+                                                    setTimeout(() => setCopyPopup(false), 1500);
+                                                }
+                                            }}
+                                            disabled={!output}
+                                            style={{
+                                                padding: '4px 8px',
+                                                border: `1px solid ${theme.border}`,
+                                                borderRadius: '4px',
+                                                backgroundColor: theme.surfaceSecondary,
+                                                color: theme.text,
+                                                cursor: output ? 'pointer' : 'not-allowed',
+                                                fontSize: '11px',
+                                                opacity: output ? 1 : 0.5
+                                            }}
+                                        >
+                                            📋 Copy
+                                        </button>
+                                    </div>
+
+                                    {copyPopup && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                top: '40px',
+                                                right: '16px',
+                                                backgroundColor: theme.accent,
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                fontSize: '10px',
+                                                color: '#000',
+                                                fontWeight: 'bold',
+                                                boxShadow: '0px 2px 6px rgba(0,0,0,0.3)',
+                                                zIndex: 10
+                                            }}
+                                        >
+                                            ✔ Copied!
+                                        </div>
+                                    )}
+                                </div>
+
+                                    
                                     <div
                                         style={{
                                             flex: 1,
@@ -1034,6 +1223,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                             whiteSpace: 'pre-wrap',
                                             color: theme.terminalText,
                                             lineHeight: '1.4',
+                                            fontSize: `${terminalFontSize}px`,  // FONT SIZE APPLY
                                         }}
                                     >
                                         {output ? (
@@ -1091,6 +1281,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             {/* AI DEBUG ASSISTANT Tab */}
                             {activeBottomTab === 'ai' && (
                                 <DebugAssistant 
+                                    terminalFontSize= {terminalFontSize}
                                     currentCode={editorRef.current ? editorRef.current.getValue() : ''}
                                     currentLanguage={language}
                                     terminalOutput={output}
@@ -1102,6 +1293,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             {/* AI DOCUMENTATION Tab */}
                             {activeBottomTab === 'input' && (
                                 <AutoDoc 
+                                    terminalFontSize= {terminalFontSize}
                                     currentCode={editorRef.current ? editorRef.current.getValue() : ''}
                                     currentLanguage={language}
                                     theme={theme}

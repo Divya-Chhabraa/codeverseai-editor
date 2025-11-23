@@ -12,6 +12,7 @@ const DebugAssistant = ({
   const [debugResult, setDebugResult] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentModel, setCurrentModel] = useState('llama-3.1-8b-instant');
+  const [copied, setCopied] = useState(false);
 
   const analyzeWithAI = async () => {
     if (!debugQuestion.trim() && !terminalOutput) {
@@ -98,6 +99,13 @@ Keep response under 200 words.
     setTimeout(() => {
       analyzeWithAI();
     }, 100);
+  };
+  const copyResult = () => {
+  if (debugResult) {
+    navigator.clipboard.writeText(debugResult);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
   };
 
   
@@ -215,9 +223,64 @@ Keep response under 200 words.
         lineHeight: '1.5'
       }}>
         {debugResult ? (
-          <div style={{ whiteSpace: 'pre-wrap', color: theme.terminalText }}>
-            {debugResult}
-          </div>
+  <div style={{ position: 'relative', height: '100%' }}>
+    {/* Scrollable content */}
+    <div style={{
+      whiteSpace: 'pre-wrap',
+      color: theme.terminalText,
+      overflowY: 'auto',
+      paddingRight: '50px'
+    }}>
+      {debugResult}
+    </div>
+
+    {/* Copy Button */}
+    <button
+      onClick={copyResult}
+      style={{
+        position: 'absolute',
+        top: '8px',
+        right: '8px',
+        padding: '6px 10px',
+        border: `1px solid ${theme.border}`,
+        borderRadius: '6px',
+        backgroundColor: theme.surfaceSecondary,
+        color: theme.text,
+        cursor: 'pointer',
+        fontSize: '11px',
+        fontWeight: 'bold',
+        zIndex: 10,
+        backdropFilter: 'blur(6px)'
+      }}
+    >
+      📋 Copy
+    </button>
+
+    {/* Copied Popup */}
+    {copied && (
+      <div
+        style={{
+          position: 'absolute',
+          top: '40px',
+          right: '8px',
+          backgroundColor: theme.accent,
+          color: '#000',
+          padding: '4px 10px',
+          borderRadius: '6px',
+          fontSize: '10px',
+          fontWeight: 'bold',
+          boxShadow: '0px 2px 6px rgba(0,0,0,0.3)',
+          transition: 'opacity 0.3s ease-in-out',
+          opacity: copied ? 1 : 0,
+          zIndex: 9
+        }}
+      >
+        ✔ Copied!
+      </div>
+    )}
+  </div>
+
+
         ) : (
           <div style={{ 
             color: theme.textSecondary, 

@@ -14,6 +14,8 @@ import {
 const EditorPage = () => {
     const socketRef = useRef(null);
     const codeRef = useRef(null);
+    const editorRef= useRef(null);
+    const[language, setLanguage]=useState('javascript');
     const location = useLocation();
     const { roomId } = useParams();
     const reactNavigator = useNavigate();
@@ -28,7 +30,8 @@ const EditorPage = () => {
     // Final username coming either from Home (state) or dashboard (query)
     const username =
         (location.state && location.state.username) || usernameFromQuery;
-
+        
+    
     useEffect(() => {
         // If we don't have a username, don't try to init socket
         if (!username) {
@@ -37,6 +40,7 @@ const EditorPage = () => {
             return;
         }
 
+        
         const init = async () => {
             setIsConnecting(true);
             setConnectionError(false);
@@ -291,6 +295,36 @@ const EditorPage = () => {
     function leaveRoom() {
         reactNavigator('/');
     }
+
+    const downloadCodeFile = () => {
+  if (!editorRef.current) return;
+  
+  const code = editorRef.current.getValue();
+  if (!code.trim()) {
+    alert("No code to download!");
+    return;
+  }
+
+  const langMap = {
+    javascript: 'js',
+    python: 'py',
+    cpp: 'cpp',
+    java: 'java',
+    typescript: 'ts',
+  };
+
+  const fileExt = langMap[language] || 'txt';
+  const fileName = `code.${fileExt}`;
+
+  const blob = new Blob([code], { type: 'text/plain' });
+  const link = document.createElement('a');
+
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  link.click();
+
+  URL.revokeObjectURL(link.href);
+};
 
     // Theme variables matching Editor component
     const theme = {
