@@ -1111,109 +1111,112 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             style={{
                                 flex: 1,
                                 backgroundColor: theme.terminalBg,
-                                display: 'flex',
-                                flexDirection: 'column',
+                                position: 'relative',
                                 overflow: 'hidden',
                                 fontFamily: 'Monaco, "Courier New", monospace',
                                 fontSize: '13px',
                             }}
                         >
+
                             {/* TERMINAL Tab */}
-                            {/* TERMINAL Tab */}
-                            {activeBottomTab === 'terminal' && (
+                            <div
+                                style={{
+                                    display: activeBottomTab === 'terminal' ? 'flex' : 'none',
+                                    flexDirection: 'column',
+                                    height: '100%',
+                                    width: '100%',
+                                }}
+                            >
+                                {/* ⬇️ Your entire TERMINAL UI code (unchanged) */}
                                 <div className="terminal-output">
-                                    
+
                                     <div style={{
-                                    position: 'relative',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '8px 16px',
-                                    backgroundColor: isDarkMode ? '#0a0a0f' : '#f8f9fa',
-                                    borderBottom: `1px solid ${theme.border}`
-                                }}>
-                                    <span style={{ fontSize: '12px', color: theme.textSecondary }}>
-                                        Terminal Output
-                                    </span>
+                                        position: 'relative',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '8px 16px',
+                                        backgroundColor: isDarkMode ? '#0a0a0f' : '#f8f9fa',
+                                        borderBottom: `1px solid ${theme.border}`
+                                    }}>
+                                        <span style={{ fontSize: '12px', color: theme.textSecondary }}>
+                                            Terminal Output
+                                        </span>
 
-                                    {/* Font Size Controls */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <button
-                                            onClick={() => setTerminalFontSize(size => Math.max(10, size - 1))}
-                                            style={{
-                                                padding: '2px 6px',
-                                                fontSize: '12px',
-                                                borderRadius: '4px',
-                                                border: `1px solid ${theme.border}`,
-                                                backgroundColor: theme.surfaceSecondary,
-                                                color: theme.text,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Size -
-                                        </button>
-                                        <button
-                                            onClick={() => setTerminalFontSize(size => Math.min(40, size + 1))}
-                                            style={{
-                                                padding: '2px 6px',
-                                                fontSize: '12px',
-                                                borderRadius: '4px',
-                                                border: `1px solid ${theme.border}`,
-                                                backgroundColor: theme.surfaceSecondary,
-                                                color: theme.text,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Size +
-                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <button
+                                                onClick={() => setTerminalFontSize(size => Math.max(10, size - 1))}
+                                                style={{
+                                                    padding: '2px 6px',
+                                                    fontSize: '12px',
+                                                    borderRadius: '4px',
+                                                    border: `1px solid ${theme.border}`,
+                                                    backgroundColor: theme.surfaceSecondary,
+                                                    color: theme.text,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Size -
+                                            </button>
+                                            <button
+                                                onClick={() => setTerminalFontSize(size => Math.min(40, size + 1))}
+                                                style={{
+                                                    padding: '2px 6px',
+                                                    fontSize: '12px',
+                                                    borderRadius: '4px',
+                                                    border: `1px solid ${theme.border}`,
+                                                    backgroundColor: theme.surfaceSecondary,
+                                                    color: theme.text,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Size +
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (output) {
+                                                        navigator.clipboard.writeText(output);
+                                                        setCopyPopup(true);
+                                                        setTimeout(() => setCopyPopup(false), 1500);
+                                                    }
+                                                }}
+                                                disabled={!output}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    border: `1px solid ${theme.border}`,
+                                                    borderRadius: '4px',
+                                                    backgroundColor: theme.surfaceSecondary,
+                                                    color: theme.text,
+                                                    cursor: output ? 'pointer' : 'not-allowed',
+                                                    fontSize: '11px',
+                                                    opacity: output ? 1 : 0.5
+                                                }}
+                                            >
+                                                📋 Copy
+                                            </button>
+                                        </div>
 
-                                        {/* Copy Button */}
-                                        <button
-                                            onClick={() => {
-                                                if (output) {
-                                                    navigator.clipboard.writeText(output);
-                                                    setCopyPopup(true);
-                                                    setTimeout(() => setCopyPopup(false), 1500);
-                                                }
-                                            }}
-                                            disabled={!output}
-                                            style={{
-                                                padding: '4px 8px',
-                                                border: `1px solid ${theme.border}`,
-                                                borderRadius: '4px',
-                                                backgroundColor: theme.surfaceSecondary,
-                                                color: theme.text,
-                                                cursor: output ? 'pointer' : 'not-allowed',
-                                                fontSize: '11px',
-                                                opacity: output ? 1 : 0.5
-                                            }}
-                                        >
-                                            📋 Copy
-                                        </button>
+                                        {copyPopup && (
+                                            <div
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '40px',
+                                                    right: '16px',
+                                                    backgroundColor: theme.accent,
+                                                    padding: '4px 10px',
+                                                    borderRadius: '6px',
+                                                    fontSize: '10px',
+                                                    color: '#000',
+                                                    fontWeight: 'bold',
+                                                    boxShadow: '0px 2px 6px rgba(0,0,0,0.3)',
+                                                    zIndex: 10
+                                                }}
+                                            >
+                                                ✔ Copied!
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {copyPopup && (
-                                        <div
-                                            style={{
-                                                position: 'absolute',
-                                                top: '40px',
-                                                right: '16px',
-                                                backgroundColor: theme.accent,
-                                                padding: '4px 10px',
-                                                borderRadius: '6px',
-                                                fontSize: '10px',
-                                                color: '#000',
-                                                fontWeight: 'bold',
-                                                boxShadow: '0px 2px 6px rgba(0,0,0,0.3)',
-                                                zIndex: 10
-                                            }}
-                                        >
-                                            ✔ Copied!
-                                        </div>
-                                    )}
-                                </div>
-
-                                    
                                     <div
                                         style={{
                                             flex: 1,
@@ -1222,19 +1225,15 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                             whiteSpace: 'pre-wrap',
                                             color: theme.terminalText,
                                             lineHeight: '1.4',
-                                            fontSize: `${terminalFontSize}px`,  // FONT SIZE APPLY
+                                            fontSize: `${terminalFontSize}px`,
                                         }}
                                     >
                                         {output ? (
-                                            <div>
-                                                <div style={{ marginBottom: '8px' }}>
-                                                    {output}
-                                                </div>
+                                            <div style={{ marginBottom: '8px' }}>
+                                                {output}
                                             </div>
                                         ) : (
-                                            <div style={{ color: theme.textSecondary }}>
-                                                {/* Terminal will show output here after running code */}
-                                            </div>
+                                            <div style={{ color: theme.textSecondary }} />
                                         )}
                                     </div>
 
@@ -1275,24 +1274,36 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                         />
                                     </div>
                                 </div>
-                            )}
+                            </div>
 
-                            {/* AI DEBUG ASSISTANT Tab */}
-                            {activeBottomTab === 'ai' && (
+                            {/* AI DEBUG ASSISTANT */}
+                            <div
+                                style={{
+                                    display: activeBottomTab === 'ai' ? 'flex' : 'none',
+                                    height: '100%',
+                                    width: '100%',
+                                }}
+                            >
                                 <DebugAssistant 
-                                    terminalFontSize= {terminalFontSize}
+                                    terminalFontSize={terminalFontSize}
                                     currentCode={editorRef.current ? editorRef.current.getValue() : ''}
                                     currentLanguage={language}
                                     terminalOutput={output}
                                     theme={theme}
                                     isDarkMode={isDarkMode}
                                 />
-                            )}
+                            </div>
 
-                            {/* AI DOCUMENTATION Tab */}
-                            {activeBottomTab === 'input' && (
+                            {/* AI DOCUMENTATION */}
+                            <div
+                                style={{
+                                    display: activeBottomTab === 'input' ? 'flex' : 'none',
+                                    height: '100%',
+                                    width: '100%',
+                                }}
+                            >
                                 <AutoDoc 
-                                    terminalFontSize= {terminalFontSize}
+                                    terminalFontSize={terminalFontSize}
                                     currentCode={editorRef.current ? editorRef.current.getValue() : ''}
                                     currentLanguage={language}
                                     theme={theme}
@@ -1302,8 +1313,10 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                     roomId={roomId}
                                     isSocketReady={isSocketReady}
                                 />
-                            )}
+                            </div>
+
                         </div>
+
                     </div>
                 )}
             </div>
