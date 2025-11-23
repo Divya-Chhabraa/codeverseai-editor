@@ -12,6 +12,7 @@ import ACTIONS from '../Actions';
 import AIAssistant from './AIAssistant';
 import PanelSwitcher from './PanelSwitcher';
 import DebugAssistant from './DebugAssistant';
+import AutoDoc from './AutoDoc';
 
 const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const editorRef = useRef(null);
@@ -953,25 +954,24 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                         AI DEBUG ASSISTANT
                                     </button>
                                     <button
-                                        className={`tab ${activeBottomTab === 'input' ? 'active' : ''}`}
-                                        onClick={() => setActiveBottomTab('input')}
-                                        style={{
-                                            padding: '8px 16px',
-                                            background: 'none',
-                                            border: 'none',
-                                            borderRight: `1px solid ${theme.border}`,
-                                            cursor: 'pointer',
-                                            color: theme.text,
-                                            transition: 'background-color 0.2s',
-                                            backgroundColor: activeBottomTab === 'input' ? theme.terminalBg : 'transparent',
-                                            borderBottom: activeBottomTab === 'input' ? `2px solid ${theme.accent}` : 'none',
-                                            fontSize: '12px',
-                                            fontWeight: 'bold',
-                                            flex: 1,
-                                        }}
-                                    >
-                                        INPUT
-                                    </button>
+                                    className={`tab ${activeBottomTab === 'input' ? 'active' : ''}`}
+                                    onClick={() => setActiveBottomTab('input')}
+                                    style={{
+                                        padding: '8px 16px',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: theme.text,
+                                        transition: 'background-color 0.2s',
+                                        backgroundColor: activeBottomTab === 'input' ? theme.terminalBg : 'transparent',
+                                        borderBottom: activeBottomTab === 'input' ? `2px solid ${theme.accent}` : 'none',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        flex: 1,
+                                    }}
+                                >
+                                    AI DOCUMENTATION 
+                                </button>
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px' }}>
@@ -1099,32 +1099,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 />
                             )}
 
-                            {/* INPUT Tab */}
+                            {/* AI DOCUMENTATION Tab */}
                             {activeBottomTab === 'input' && (
-                                <div className="dedicated-input" style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ color: theme.accent, marginBottom: '12px', fontSize: '14px' }}>Input Console</h3>
-                                    <textarea 
-                                        placeholder="Enter program input here..."
-                                        className="input-console"
-                                        style={{
-                                            flex: 1,
-                                            backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                                            color: theme.terminalText,
-                                            border: `1px solid ${theme.border}`,
-                                            borderRadius: '6px',
-                                            padding: '12px',
-                                            fontFamily: 'Monaco, "Courier New", monospace',
-                                            fontSize: '13px',
-                                            resize: 'none',
-                                            outline: 'none',
-                                        }}
-                                        value={userInput}
-                                        onChange={(e) => setUserInput(e.target.value)}
-                                    />
-                                    <div style={{ marginTop: '12px', fontSize: '11px', color: theme.textSecondary }}>
-                                        This input will be passed to your program when executed.
-                                    </div>
-                                </div>
+                                <AutoDoc 
+                                    currentCode={editorRef.current ? editorRef.current.getValue() : ''}
+                                    currentLanguage={language}
+                                    theme={theme}
+                                    isDarkMode={isDarkMode}
+                                    socketRef={socketRef}
+                                    username={username}
+                                    roomId={roomId}
+                                    isSocketReady={isSocketReady}
+                                />
                             )}
                         </div>
                     </div>
