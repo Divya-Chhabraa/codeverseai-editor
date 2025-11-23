@@ -155,8 +155,8 @@ const EditorPage = () => {
                     height: '100vh',
                     flexDirection: 'column',
                     gap: '20px',
-                    backgroundColor: '#1e1f29',
-                    color: '#f8f8f2',
+                    backgroundColor: '#0a0f1c',
+                    color: '#f8fafc',
                     fontFamily:
                         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 }}
@@ -165,8 +165,8 @@ const EditorPage = () => {
                     style={{
                         width: '50px',
                         height: '50px',
-                        border: '4px solid #44475a',
-                        borderTop: '4px solid #61dafb',
+                        border: '4px solid #334155',
+                        borderTop: '4px solid #8b5cf6',
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite',
                     }}
@@ -175,7 +175,7 @@ const EditorPage = () => {
                     Connecting to Room...
                 </div>
                 <div
-                    style={{ fontSize: '14px', color: '#bd93f9' }}
+                    style={{ fontSize: '14px', color: '#8b5cf6' }}
                 >{`Room ID: ${roomId}`}</div>
                 <style>
                     {`
@@ -200,8 +200,8 @@ const EditorPage = () => {
                     height: '100vh',
                     flexDirection: 'column',
                     gap: '20px',
-                    backgroundColor: '#1e1f29',
-                    color: '#f8f8f2',
+                    backgroundColor: '#0a0f1c',
+                    color: '#f8fafc',
                     fontFamily:
                         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 }}
@@ -211,7 +211,7 @@ const EditorPage = () => {
                     style={{
                         fontSize: '24px',
                         fontWeight: 'bold',
-                        color: '#ff5555',
+                        color: '#ef4444',
                     }}
                 >
                     Connection Failed
@@ -221,6 +221,7 @@ const EditorPage = () => {
                         fontSize: '16px',
                         textAlign: 'center',
                         maxWidth: '400px',
+                        color: '#94a3b8',
                     }}
                 >
                     Unable to connect to the server. Please check your internet
@@ -230,14 +231,21 @@ const EditorPage = () => {
                     onClick={() => window.location.reload()}
                     style={{
                         padding: '12px 24px',
-                        backgroundColor: '#61dafb',
+                        backgroundColor: '#8b5cf6',
                         border: 'none',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        color: '#000',
+                        color: '#fff',
                         fontSize: '14px',
                         marginTop: '10px',
+                        transition: 'all 0.2s ease',
+                    }}
+                    onMouseOver={(e) => {
+                        e.target.style.backgroundColor = '#7c3aed';
+                    }}
+                    onMouseOut={(e) => {
+                        e.target.style.backgroundColor = '#8b5cf6';
                     }}
                 >
                     🔄 Retry Connection
@@ -247,12 +255,21 @@ const EditorPage = () => {
                     style={{
                         padding: '12px 24px',
                         backgroundColor: 'transparent',
-                        border: '2px solid #ff5555',
+                        border: '2px solid #ef4444',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        color: '#ff5555',
+                        color: '#ef4444',
                         fontSize: '14px',
+                        transition: 'all 0.2s ease',
+                    }}
+                    onMouseOver={(e) => {
+                        e.target.style.backgroundColor = '#ef4444';
+                        e.target.style.color = '#fff';
+                    }}
+                    onMouseOut={(e) => {
+                        e.target.style.backgroundColor = 'transparent';
+                        e.target.style.color = '#ef4444';
                     }}
                 >
                     🏠 Return Home
@@ -275,12 +292,24 @@ const EditorPage = () => {
         reactNavigator('/');
     }
 
+    // Theme variables matching Editor component
+    const theme = {
+        background: '#0a0f1c',
+        surface: '#0f172a',
+        surfaceSecondary: '#1e293b',
+        text: '#f8fafc',
+        textSecondary: '#94a3b8',
+        border: '#334155',
+        accent: '#8b5cf6',
+        success: '#10b981',
+    };
+
     return (
         <div
             style={{
                 display: 'flex',
                 height: '100vh',
-                backgroundColor: '#1e1f29',
+                backgroundColor: theme.background,
                 fontFamily:
                     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
@@ -289,14 +318,15 @@ const EditorPage = () => {
             <div
                 style={{
                     width: '220px',
-                    backgroundColor: '#282a36',
-                    borderRight: '1px solid #44475a',
+                    backgroundColor: theme.surface,
+                    borderRight: `1px solid ${theme.border}`,
                     display: 'flex',
                     flexDirection: 'column',
                     padding: '16px',
-                    color: '#f8f8f2',
+                    color: theme.text,
                 }}
             >
+                {/* Logo Section - Kept Intact */}
                 <div
                     style={{
                         textAlign: 'center',
@@ -332,8 +362,8 @@ const EditorPage = () => {
                 {/* Connection Status */}
                 <div
                     style={{
-                        backgroundColor: '#50fa7b20',
-                        border: '1px solid #50fa7b',
+                        backgroundColor: `${theme.success}20`,
+                        border: `1px solid ${theme.success}`,
                         padding: '8px',
                         borderRadius: '6px',
                         marginBottom: '12px',
@@ -346,7 +376,7 @@ const EditorPage = () => {
                         style={{
                             width: '8px',
                             height: '8px',
-                            backgroundColor: '#50fa7b',
+                            backgroundColor: theme.success,
                             borderRadius: '50%',
                             animation: 'pulse 2s infinite',
                         }}
@@ -355,7 +385,7 @@ const EditorPage = () => {
                         style={{
                             fontSize: '12px',
                             fontWeight: 'bold',
-                            color: '#50fa7b',
+                            color: theme.success,
                         }}
                     >
                         Connected
@@ -365,17 +395,19 @@ const EditorPage = () => {
                 {/* Room Info */}
                 <div
                     style={{
-                        backgroundColor: '#44475a',
+                        backgroundColor: theme.surfaceSecondary,
                         padding: '10px',
                         borderRadius: '6px',
                         marginBottom: '16px',
+                        border: `1px solid ${theme.border}`,
                     }}
                 >
                     <div
                         style={{
                             fontSize: '11px',
-                            color: '#bd93f9',
+                            color: theme.accent,
                             marginBottom: '4px',
+                            fontWeight: '500',
                         }}
                     >
                         Room ID
@@ -386,6 +418,7 @@ const EditorPage = () => {
                             fontWeight: 'bold',
                             fontFamily: 'Monaco, "Courier New", monospace',
                             wordBreak: 'break-all',
+                            color: theme.text,
                         }}
                     >
                         {roomId}
@@ -398,7 +431,7 @@ const EditorPage = () => {
                         style={{
                             fontSize: '16px',
                             fontWeight: 'bold',
-                            color: '#61dafb',
+                            color: theme.accent,
                             marginBottom: '10px',
                             display: 'flex',
                             alignItems: 'center',
@@ -416,20 +449,21 @@ const EditorPage = () => {
                                     alignItems: 'center',
                                     gap: '8px',
                                     padding: '6px 8px',
-                                    backgroundColor: '#44475a',
+                                    backgroundColor: theme.surfaceSecondary,
                                     borderRadius: '4px',
                                     marginBottom: '4px',
+                                    border: `1px solid ${theme.border}`,
                                 }}
                             >
                                 <div
                                     style={{
                                         width: '6px',
                                         height: '6px',
-                                        backgroundColor: '#50fa7b',
+                                        backgroundColor: theme.success,
                                         borderRadius: '50%',
                                     }}
                                 ></div>
-                                <div style={{ fontSize: '14px' }}>
+                                <div style={{ fontSize: '14px', color: theme.text }}>
                                     {client.username}
                                 </div>
                             </div>
@@ -450,8 +484,8 @@ const EditorPage = () => {
                         onClick={copyRoomId}
                         style={{
                             backgroundColor: 'transparent',
-                            border: '2px solid #61dafb',
-                            color: '#61dafb',
+                            border: `2px solid ${theme.accent}`,
+                            color: theme.accent,
                             padding: '8px 12px',
                             borderRadius: '6px',
                             cursor: 'pointer',
@@ -460,12 +494,12 @@ const EditorPage = () => {
                             transition: 'all 0.2s ease',
                         }}
                         onMouseOver={(e) => {
-                            e.target.style.backgroundColor = '#61dafb';
-                            e.target.style.color = '#000';
+                            e.target.style.backgroundColor = theme.accent;
+                            e.target.style.color = '#fff';
                         }}
                         onMouseOut={(e) => {
                             e.target.style.backgroundColor = 'transparent';
-                            e.target.style.color = '#61dafb';
+                            e.target.style.color = theme.accent;
                         }}
                     >
                         📋 Copy ID
@@ -474,8 +508,8 @@ const EditorPage = () => {
                         onClick={leaveRoom}
                         style={{
                             backgroundColor: 'transparent',
-                            border: '2px solid #ff5555',
-                            color: '#ffffffff',
+                            border: '2px solid #ef4444',
+                            color: '#ef4444',
                             padding: '8px 12px',
                             borderRadius: '6px',
                             cursor: 'pointer',
@@ -484,7 +518,12 @@ const EditorPage = () => {
                             transition: 'all 0.2s ease',
                         }}
                         onMouseOver={(e) => {
-                            e.target.style.backgroundColor = '#ff7979';
+                            e.target.style.backgroundColor = '#ef4444';
+                            e.target.style.color = '#fff';
+                        }}
+                        onMouseOut={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                            e.target.style.color = '#ef4444';
                         }}
                     >
                         🚪 Leave
