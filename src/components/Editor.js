@@ -1108,15 +1108,19 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
                         {/* Terminal Content Area */}
                         <div
-                            style={{
-                                flex: 1,
-                                backgroundColor: theme.terminalBg,
-                                position: 'relative',
-                                overflow: 'hidden',
-                                fontFamily: 'Monaco, "Courier New", monospace',
-                                fontSize: '13px',
-                            }}
+                        style={{
+                            flex: 1,
+                            width: isFullScreen ? '100vw' : '100%',
+                            height: isFullScreen ? '100vh' : 'auto',
+                            backgroundColor: theme.terminalBg,
+                            position: 'relative',
+                            overflow: 'auto',
+                            fontFamily: 'Monaco, "Courier New", monospace',
+                            fontSize: '13px',
+                            zIndex: 9999,
+                        }}
                         >
+
 
                             {/* TERMINAL Tab */}
                             <div
@@ -1322,7 +1326,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             </div>
 
             {/* RIGHT PANEL - Switches between Chat and AI Assistant */}
-            {isChatOpen && (
+            {!isFullScreen && isChatOpen && (
                 <div
                     style={{
                         width: '320px',
