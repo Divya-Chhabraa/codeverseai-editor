@@ -35,7 +35,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [isResizing, setIsResizing] = useState(false);
     const [activePanel, setActivePanel] = useState('chat');
     const [aiMessages, setAiMessages] = useState([]);
-    const [terminalFontSize, setTerminalFontSize] = useState([13]);
+    const [terminalFontSize, setTerminalFontSize] = useState(13);
     const [copyPopup, setCopyPopup] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
 
