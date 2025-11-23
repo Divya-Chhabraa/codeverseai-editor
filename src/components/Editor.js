@@ -12,6 +12,7 @@ import ACTIONS from '../Actions';
 import AIAssistant from './AIAssistant';
 import PanelSwitcher from './PanelSwitcher';
 import DebugAssistant from './DebugAssistant';
+import AutoDoc from './AutoDoc';
 
 const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const editorRef = useRef(null);
@@ -32,13 +33,20 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [activeBottomTab, setActiveBottomTab] = useState('terminal');
     const [terminalHeight, setTerminalHeight] = useState(200);
     const [isResizing, setIsResizing] = useState(false);
-    const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [activePanel, setActivePanel] = useState('chat');
     const [aiMessages, setAiMessages] = useState([]);
     
     // Sync states
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);
     const [initialOutputReceived, setInitialOutputReceived] = useState(false);
+
+    // Extract filename from URL parameters
+    const getFilenameFromUrl = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('filename') || 'Untitled';
+    };
+
+    const [currentFilename] = useState(getFilenameFromUrl());
 
     /* ---------------- TERMINAL RESIZE HANDLER ---------------- */
     const handleResizeMouseDown = (e) => {
@@ -105,28 +113,24 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         }
     };
 
-    /* ---------------- COMBINED SOCKET CONNECTION MONITORING ---------------- */
+    /* ---------------- SOCKET CONNECTION MONITORING ---------------- */
     useEffect(() => {
         if (!socketRef.current) return;
 
         const socket = socketRef.current;
         
         setIsSocketReady(socket.connected);
-        setConnectionStatus(socket.connected ? 'connected' : 'connecting');
 
         const handleConnect = () => {
             setIsSocketReady(true);
-            setConnectionStatus('connected');
         };
 
         const handleDisconnect = () => {
             setIsSocketReady(false);
-            setConnectionStatus('disconnected');
         };
 
         const handleConnectError = (error) => {
             setIsSocketReady(false);
-            setConnectionStatus('error');
         };
 
         socket.on('connect', handleConnect);
@@ -169,7 +173,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         const currentOnCodeChange = onCodeChange;
         const currentIsDarkMode = isDarkMode;
 
-        // Define loadFileFromServer INSIDE this useEffect
         const loadFileFromServer = async () => {
             try {
                 const backendUrl = getBackendUrl();
@@ -579,18 +582,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
     // Theme variables
     const theme = {
-        background: isDarkMode ? '#1e1f29' : '#f8f9fa',
-        surface: isDarkMode ? '#282a36' : '#ffffff',
-        surfaceSecondary: isDarkMode ? '#2d303d' : '#f1f3f5',
-        text: isDarkMode ? '#f8f8f2' : '#2f3542',
-        textSecondary: isDarkMode ? '#bd93f9' : '#747d8c',
-        border: isDarkMode ? '#44475a' : '#dee2e6',
-        accent: '#61dafb',
-        success: '#50fa7b',
-        terminalBg: isDarkMode ? '#0e1119' : '#ffffff',
-        terminalText: isDarkMode ? '#f8f8f2' : '#2f3542',
-        chatBg: isDarkMode ? '#1e1f29' : '#ffffff',
-        chatSurface: isDarkMode ? '#282a36' : '#f8f9fa',
+        background: isDarkMode ? '#0a0f1c' : '#f8f9fa',
+        surface: isDarkMode ? '#0f172a' : '#ffffff',
+        surfaceSecondary: isDarkMode ? '#1e293b' : '#f1f3f5',
+        text: isDarkMode ? '#f8fafc' : '#2f3542',
+        textSecondary: isDarkMode ? '#94a3b8' : '#747d8c',
+        border: isDarkMode ? '#334155' : '#dee2e6',
+        accent: '#8b5cf6',
+        success: '#10b981',
+        terminalBg: isDarkMode ? '#020617' : '#ffffff',
+        terminalText: isDarkMode ? '#f8fafc' : '#2f3542',
+        chatBg: isDarkMode ? '#0a0f1c' : '#ffffff',
+        chatSurface: isDarkMode ? '#0f172a' : '#f8f9fa',
     };
 
     return (
@@ -602,8 +605,65 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 color: theme.text,
                 overflow: 'hidden',
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                position: 'relative',
             }}
         >
+            {/* Background Pattern */}
+            <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundImage: `
+                    radial-gradient(circle at 25% 25%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                    radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 50% 10%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+                    radial-gradient(circle at 90% 40%, rgba(139, 92, 246, 0.06) 0%, transparent 50%)
+                `,
+                backgroundSize: '400px 400px, 300px 300px, 500px 500px, 350px 350px',
+                backgroundPosition: '0% 0%, 100% 100%, 50% 0%, 100% 40%',
+                opacity: 0.4,
+                zIndex: 0
+            }}></div>
+
+            {/* Floating Code Icons */}
+            <div style={{
+                position: 'absolute',
+                top: '10%',
+                left: '5%',
+                fontSize: '24px',
+                opacity: 0.05,
+                zIndex: 0
+            }}>{'</>'}</div>
+
+            <div style={{
+                position: 'absolute',
+                top: '80%',
+                right: '10%',
+                fontSize: '20px',
+                opacity: 0.05,
+                zIndex: 0
+            }}>{'{}'}</div>
+
+            <div style={{
+                position: 'absolute',
+                top: '20%',
+                right: '15%',
+                fontSize: '18px',
+                opacity: 0.04,
+                zIndex: 0
+            }}>{'<>'}</div>
+
+            <div style={{
+                position: 'absolute',
+                bottom: '15%',
+                left: '10%',
+                fontSize: '22px',
+                opacity: 0.05,
+                zIndex: 0
+            }}>{'()'}</div>
+
             {/* MAIN AREA (editor + terminal) */}
             <div
                 style={{
@@ -611,6 +671,8 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     display: 'flex',
                     flexDirection: 'column',
                     minWidth: 0,
+                    position: 'relative',
+                    zIndex: 1,
                 }}
             >
                 {/* Top bar */}
@@ -623,34 +685,26 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         backgroundColor: theme.surface,
                         borderBottom: `1px solid ${theme.border}`,
                         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        position: 'relative',
+                        zIndex: 2,
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                            fontSize: '14px',
-                            color: connectionStatus === 'connected' ? theme.success : 
-                                   connectionStatus === 'connecting' ? '#ffa500' : '#ff4757',
-                            backgroundColor: `${connectionStatus === 'connected' ? theme.success : 
-                                             connectionStatus === 'connecting' ? '#ffa500' : '#ff4757'}20`,
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            fontWeight: '500',
-                        }}>
-                            {connectionStatus === 'connected' ? '🟢 Connected' : 
-                             connectionStatus === 'connecting' ? '🟡 Connecting...' : '🔴 Disconnected'}
-                        </div>
-                        
+                        {/* Filename Display */}
                         <div
                             style={{
                                 fontSize: '14px',
-                                color: theme.success,
-                                backgroundColor: `${theme.success}20`,
+                                color: theme.accent,
+                                backgroundColor: `${theme.accent}20`,
                                 padding: '4px 8px',
                                 borderRadius: '6px',
                                 fontWeight: '500',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
                             }}
                         >
-                            🔄 Real-time Sync
+                            📄 {currentFilename}
                         </div>
                     </div>
 
@@ -739,7 +793,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                         position: 'absolute',
                                         top: '-5px',
                                         right: '-5px',
-                                        backgroundColor: '#ff4757',
+                                        backgroundColor: '#ef4444',
                                         color: 'white',
                                         borderRadius: '50%',
                                         width: '16px',
@@ -762,7 +816,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             style={{
                                 padding: '10px 20px',
                                 borderRadius: '8px',
-                                backgroundColor: '#50fa7b',
+                                backgroundColor: theme.success,
                                 border: 'none',
                                 cursor: 'pointer',
                                 fontWeight: 'bold',
@@ -787,7 +841,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 border: 'none',
                                 cursor: isRunning ? 'not-allowed' : 'pointer',
                                 fontWeight: 'bold',
-                                color: '#000',
+                                color: '#fff',
                                 fontSize: '14px',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -797,7 +851,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         >
                             {isRunning ? (
                                 <>
-                                    <div style={{ width: '12px', height: '12px', border: '2px solid transparent', borderTop: '2px solid #000', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                    <div style={{ width: '12px', height: '12px', border: '2px solid transparent', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                                     Running...
                                 </>
                             ) : (
@@ -853,7 +907,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 padding: '0px',
-                                backgroundColor: isDarkMode ? '#1a1b26' : '#e9ecef',
+                                backgroundColor: isDarkMode ? '#1e293b' : '#e9ecef',
                                 borderBottom: `1px solid ${theme.border}`,
                             }}
                         >
@@ -900,44 +954,24 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                         AI DEBUG ASSISTANT
                                     </button>
                                     <button
-                                        className={`tab ${activeBottomTab === 'input' ? 'active' : ''}`}
-                                        onClick={() => setActiveBottomTab('input')}
-                                        style={{
-                                            padding: '8px 16px',
-                                            background: 'none',
-                                            border: 'none',
-                                            borderRight: `1px solid ${theme.border}`,
-                                            cursor: 'pointer',
-                                            color: theme.text,
-                                            transition: 'background-color 0.2s',
-                                            backgroundColor: activeBottomTab === 'input' ? theme.terminalBg : 'transparent',
-                                            borderBottom: activeBottomTab === 'input' ? `2px solid ${theme.accent}` : 'none',
-                                            fontSize: '12px',
-                                            fontWeight: 'bold',
-                                            flex: 1,
-                                        }}
-                                    >
-                                        INPUT
-                                    </button>
-                                    <button
-                                        className={`tab ${activeBottomTab === 'logs' ? 'active' : ''}`}
-                                        onClick={() => setActiveBottomTab('logs')}
-                                        style={{
-                                            padding: '8px 16px',
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            color: theme.text,
-                                            transition: 'background-color 0.2s',
-                                            backgroundColor: activeBottomTab === 'logs' ? theme.terminalBg : 'transparent',
-                                            borderBottom: activeBottomTab === 'logs' ? `2px solid ${theme.accent}` : 'none',
-                                            fontSize: '12px',
-                                            fontWeight: 'bold',
-                                            flex: 1,
-                                        }}
-                                    >
-                                        LOGS
-                                    </button>
+                                    className={`tab ${activeBottomTab === 'input' ? 'active' : ''}`}
+                                    onClick={() => setActiveBottomTab('input')}
+                                    style={{
+                                        padding: '8px 16px',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: theme.text,
+                                        transition: 'background-color 0.2s',
+                                        backgroundColor: activeBottomTab === 'input' ? theme.terminalBg : 'transparent',
+                                        borderBottom: activeBottomTab === 'input' ? `2px solid ${theme.accent}` : 'none',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        flex: 1,
+                                    }}
+                                >
+                                    AI DOCUMENTATION  
+                                </button>
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px' }}>
@@ -1021,7 +1055,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                             alignItems: 'center',
                                             gap: '8px',
                                             padding: '8px 16px',
-                                            backgroundColor: isDarkMode ? '#0a0a0f' : '#f8f9fa',
+                                            backgroundColor: isDarkMode ? '#0f172a' : '#f8f9fa',
                                             borderTop: `1px solid ${theme.border}`,
                                         }}
                                     >
@@ -1065,65 +1099,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 />
                             )}
 
-                            {/* INPUT Tab */}
+                            {/* AI DOCUMENTATION Tab */}
                             {activeBottomTab === 'input' && (
-                                <div className="dedicated-input" style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ color: theme.accent, marginBottom: '12px', fontSize: '14px' }}>Input Console</h3>
-                                    <textarea 
-                                        placeholder="Enter program input here..."
-                                        className="input-console"
-                                        style={{
-                                            flex: 1,
-                                            backgroundColor: isDarkMode ? '#1a1b26' : '#ffffff',
-                                            color: theme.terminalText,
-                                            border: `1px solid ${theme.border}`,
-                                            borderRadius: '6px',
-                                            padding: '12px',
-                                            fontFamily: 'Monaco, "Courier New", monospace',
-                                            fontSize: '13px',
-                                            resize: 'none',
-                                            outline: 'none',
-                                        }}
-                                        value={userInput}
-                                        onChange={(e) => setUserInput(e.target.value)}
-                                    />
-                                    <div style={{ marginTop: '12px', fontSize: '11px', color: theme.textSecondary }}>
-                                        This input will be passed to your program when executed.
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* LOGS Tab */}
-                            {activeBottomTab === 'logs' && (
-                                <div className="logs-area" style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ color: theme.accent, marginBottom: '12px', fontSize: '14px' }}>Application Logs</h3>
-                                    <div className="log-entries" style={{ 
-                                        flex: 1, 
-                                        backgroundColor: isDarkMode ? '#1a1b26' : '#ffffff',
-                                        border: `1px solid ${theme.border}`,
-                                        borderRadius: '6px',
-                                        padding: '12px',
-                                        overflowY: 'auto',
-                                        fontFamily: 'Monaco, "Courier New", monospace',
-                                        fontSize: '12px',
-                                    }}>
-                                        <div style={{ color: theme.textSecondary, fontStyle: 'italic' }}>
-                                            No logs available. Application logs will appear here during execution.
-                                        </div>
-                                        <div style={{ color: theme.textSecondary, marginTop: '8px', fontSize: '11px' }}>
-                                            • System initialized successfully
-                                        </div>
-                                        <div style={{ color: theme.textSecondary, fontSize: '11px' }}>
-                                            • Terminal tabs enabled
-                                        </div>
-                                        <div style={{ color: theme.textSecondary, fontSize: '11px' }}>
-                                            • Terminal height: {terminalHeight}px
-                                        </div>
-                                    </div>
-                                    <div style={{ marginTop: '12px', fontSize: '11px', color: theme.textSecondary }}>
-                                        Logs are automatically captured during code execution.
-                                    </div>
-                                </div>
+                                <AutoDoc 
+                                    currentCode={editorRef.current ? editorRef.current.getValue() : ''}
+                                    currentLanguage={language}
+                                    theme={theme}
+                                    isDarkMode={isDarkMode}
+                                    socketRef={socketRef}
+                                    username={username}
+                                    roomId={roomId}
+                                    isSocketReady={isSocketReady}
+                                />
                             )}
                         </div>
                     </div>
@@ -1141,6 +1128,8 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         flexDirection: 'column',
                         flexShrink: 0,
                         transition: 'all 0.3s ease',
+                        position: 'relative',
+                        zIndex: 1,
                     }}
                 >
                     {/* Panel Switcher */}
@@ -1278,7 +1267,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                                 borderRadius: '6px',
                                                 padding: '8px 12px',
                                                 cursor: (chatText.trim() && isSocketReady) ? 'pointer' : 'not-allowed',
-                                                color: (chatText.trim() && isSocketReady) ? '#000' : theme.textSecondary,
+                                                color: (chatText.trim() && isSocketReady) ? '#fff' : theme.textSecondary,
                                                 fontSize: '12px',
                                                 fontWeight: 'bold',
                                                 transition: 'all 0.2s ease',

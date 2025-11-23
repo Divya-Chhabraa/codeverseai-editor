@@ -205,6 +205,76 @@ io.on('connection', (socket) => {
         });
     });
 
+    // 🔹 AI Documentation via Socket.IO
+    // 🔹 AI Documentation via Socket.IO - UPDATED MODELS
+// 🔹 AI Documentation via Socket.IO - FINAL WORKING VERSION
+        socket.on(ACTIONS.AI_DOC_REQUEST, async ({ roomId, code, language, username }) => {
+            try {
+                console.log('📄 AI Documentation requested from room:', roomId);
+
+                const GROQ_API_KEY = process.env.DOC_GROQ_API_KEY;
+                if (!GROQ_API_KEY) {
+                    throw new Error('Groq API key missing in server');
+                }
+
+                const prompt = `
+Generate CRISP technical documentation for this ${language} code.
+Requirements:
+- MAX 8-12 lines total
+- Use standard ${language} documentation format
+- Only include: brief description, parameters with types, return type
+- ONE line example if needed
+- NO lengthy explanations, NO multiple examples
+- Be direct and technical
+
+Code:
+\`\`\`${language}
+${code}
+\`\`\`
+
+Documentation:`;
+
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${GROQ_API_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.1-8b-instant', // ✅ CONFIRMED WORKING MODEL
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.3,
+                        max_tokens: 1024,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Groq API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                }
+
+                const data = await response.json();
+                const documentationText =
+                    data.choices?.[0]?.message?.content || 'No documentation generated';
+
+                console.log('📄 Documentation generated successfully.');
+
+                io.to(roomId).emit(ACTIONS.AI_DOC_RESULT, {
+                    documentation: documentationText,
+                    language,
+                    username,
+                });
+
+            } catch (error) {
+                console.error('❌ AI Documentation Error:', error);
+
+                io.to(roomId).emit(ACTIONS.AI_DOC_RESULT, {
+                    error: error.message,
+                    language,
+                    username,
+                });
+            }
+        });
     socket.on('disconnecting', () => {
         const rooms = [...socket.rooms];
         rooms.forEach((roomId) => {
@@ -355,7 +425,7 @@ TECHNICAL DEPTH:
             : `Question: ${message}`;
 
         const requestBody = {
-            model: selectedModel,
+            model:"llama3-70b-8192",
             messages: [
                 {
                     role: 'system',
@@ -370,7 +440,10 @@ TECHNICAL DEPTH:
             max_tokens: 3000,
             stream: false,
         };
-
+        console.log(
+            "Debug- Body sent to Groq:",
+            JSON.stringify(requestBody,null,2)
+        );
         const response = await fetch(
             'https://api.groq.com/openai/v1/chat/completions',
             {

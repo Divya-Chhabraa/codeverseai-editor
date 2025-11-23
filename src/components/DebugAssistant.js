@@ -100,13 +100,7 @@ Keep response under 200 words.
     }, 100);
   };
 
-  const quickScan = async () => {
-    setDebugQuestion('Quick scan for syntax errors and obvious bugs only');
-    setTimeout(() => {
-      analyzeWithAI();
-    }, 100);
-  };
-
+  
   const handleModelChange = (e) => {
     setCurrentModel(e.target.value);
   };
@@ -184,7 +178,7 @@ Keep response under 200 words.
               gap: '6px'
             }}
           >
-            {isAnalyzing ? '🔍 Fixing...' : '🚀 Fix Errors'}
+            {isAnalyzing ? '🔍 Fixing...' : 'Ask AI'}
           </button>
           <button
             onClick={autoAnalyzeError}
@@ -203,26 +197,9 @@ Keep response under 200 words.
               gap: '6px'
             }}
           >
-            🔧 Auto-Fix
+            Auto Analyze Code
           </button>
-          <button
-            onClick={quickScan}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#ffa500',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              color: '#000',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            ⚡ Quick Scan
-          </button>
+          
         </div>
       </div>
 
@@ -285,7 +262,7 @@ Keep response under 200 words.
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>
-            Mode: <span style={{ color: theme.accent }}>Quick Fix</span>
+            Mode: <span style={{ color: theme.accent }}>Ask AI</span>
           </span>
           <span>
             Model: <span style={{ color: theme.accent }}>{currentModel.split('-')[0]}</span>
