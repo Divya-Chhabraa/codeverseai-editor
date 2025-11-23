@@ -937,16 +937,15 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 </div>
 
                 {/* Editor - Scrollable with Real-time Sync */}
-                {!isFullScreen && (
-                    <div style={{ 
-                        flex: 1, 
-                        overflow: 'auto',
-                        position: 'relative',
-                    }}>
-                        <textarea id="realtimeEditor"></textarea>
-                    </div>
-                )}
-                
+                <div style={{ 
+                flex: isFullScreen ? 0 : 1,  // ← Full screen mein 0, normal mein 1
+                height: isFullScreen ? '0px' : 'auto',  // ← Height control
+                overflow: 'auto',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                }}>
+                <textarea id="realtimeEditor"></textarea>
+                </div>          
 
                 {/* COLLAPSIBLE TERMINAL WITH TABS AND RESIZE */}
                 {(isTerminalOpen || isFullScreen) && (
