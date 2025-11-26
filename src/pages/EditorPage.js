@@ -15,7 +15,7 @@ const EditorPage = () => {
     const socketRef = useRef(null);
     const codeRef = useRef(null);
     const editorRef= useRef(null);
-    const[language, setLanguage]=useState('javascript');
+    const[language, setLanguage]=useState(langFromQuery||'javascript');
     const location = useLocation();
     const { roomId } = useParams();
     const reactNavigator = useNavigate();
@@ -23,6 +23,7 @@ const EditorPage = () => {
     const [isConnecting, setIsConnecting] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
     const [copied, setCopied] = useState(false);
+    const langFromQuery = searchParams.get('lang');
 
     // 🔹 Get username from query params as fallback
     const searchParams = new URLSearchParams(location.search);
@@ -604,6 +605,8 @@ const EditorPage = () => {
                     socketRef={socketRef}
                     roomId={roomId}
                     username={username}
+                    language={language}
+                    setLanguage={setLanguage}
                     onCodeChange={(code) => {
                         codeRef.current = code;
                     }}

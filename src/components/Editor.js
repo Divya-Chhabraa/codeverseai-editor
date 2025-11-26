@@ -231,7 +231,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             if (!textarea) return;
 
             editorRef.current = Codemirror.fromTextArea(textarea, {
-                mode: 'javascript',
+                mode: language,
                 theme: currentIsDarkMode ? 'dracula' : 'default',
                 autoCloseTags: true,
                 autoCloseBrackets: true,
@@ -293,6 +293,30 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         
         editorRef.current.setOption('mode', mode);
     }, [language]);
+
+    useEffect(() => {
+    if (!editorRef.current) return;
+    
+    let mode;
+    switch(language) {
+        case 'javascript':
+            mode = 'javascript';
+            break;
+        case 'python':
+            mode = 'python';
+            break;
+        case 'cpp':
+        case 'java':
+            mode = 'text/x-c++src';
+            break;
+        default:
+            mode = 'javascript';
+    }
+    
+    editorRef.current.setOption('mode', mode);
+    }, [language]);
+
+
 
     /* ---------------- UPDATE CODEMIRROR THEME ---------------- */
     useEffect(() => {
