@@ -38,6 +38,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [terminalFontSize, setTerminalFontSize] = useState(13);
     const [copyPopup, setCopyPopup] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
 
     // Sync states
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);

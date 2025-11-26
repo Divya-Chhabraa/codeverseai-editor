@@ -22,6 +22,7 @@ const EditorPage = () => {
     const [clients, setClients] = useState([]);
     const [isConnecting, setIsConnecting] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     // 🔹 Get username from query params as fallback
     const searchParams = new URLSearchParams(location.search);
@@ -31,6 +32,36 @@ const EditorPage = () => {
     const username =
         (location.state && location.state.username) || usernameFromQuery;
         
+    const copyRoomId = async () => {
+    const shareMessage = `🚀 Join me on CodeVerse AI!
+
+    I'm working inside a real-time collaborative coding room — and I'd love for you to join!
+
+    👤 Host: ${username}
+    🆔 Room ID: ${roomId}
+    🔗 Quick Join Link:
+    ${window.location.origin}/editor/${roomId}?username=Guest
+
+    ✨ What you can do:
+    • Code together in real-time
+    • Instant updates — zero lag
+    • AI-powered coding assistance
+    • No setup — just click & start!
+
+    Let’s build something amazing together! 💻🔥`;
+
+        try {
+            await navigator.clipboard.writeText(shareMessage);
+            setCopied(true);
+            toast.success("Invitation copied! Send it to your friend 🚀");
+
+            setTimeout(() => setCopied(false), 2500);
+        } catch (err) {
+            toast.error("Could not copy invitation!");
+            console.error(err);
+        }
+    };
+
     
     useEffect(() => {
         // If we don't have a username, don't try to init socket
@@ -282,7 +313,7 @@ const EditorPage = () => {
         );
     }
 
-    async function copyRoomId() {
+    /* async function copyRoomId() {
         try {
             await navigator.clipboard.writeText(roomId);
             toast.success('Room ID has been copied to your clipboard');
@@ -290,7 +321,7 @@ const EditorPage = () => {
             toast.error('Could not copy the Room ID');
             console.error(err);
         }
-    }
+    } */
 
     function leaveRoom() {
         reactNavigator('/');
@@ -517,9 +548,9 @@ const EditorPage = () => {
                     <button
                         onClick={copyRoomId}
                         style={{
-                            backgroundColor: 'transparent',
+                            backgroundColor: copied ? theme.accent : 'transparent',
                             border: `2px solid ${theme.accent}`,
-                            color: theme.accent,
+                            color: copied ? '#fff' : theme.accent,
                             padding: '8px 12px',
                             borderRadius: '6px',
                             cursor: 'pointer',
@@ -537,6 +568,8 @@ const EditorPage = () => {
                         }}
                     >
                         📋 Copy ID
+                        
+
                     </button>
                     <button
                         onClick={leaveRoom}
