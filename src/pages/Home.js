@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { v4 as uuidV4 } from 'uuid';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +17,7 @@ const Home = () => {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const roomFromURL = params.get("roomId");
+        const roomFromURL = params.get('roomId');
         if (roomFromURL) {
             setRoomId(roomFromURL);
         }
