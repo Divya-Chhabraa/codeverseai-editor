@@ -212,8 +212,8 @@ io.on('connection', (socket) => {
             try {
                 console.log('📄 AI Documentation requested from room:', roomId);
 
-                const GROQ_API_KEY = process.env.DOC_GROQ_API_KEY;
-                if (!GROQ_API_KEY) {
+                const GROQ_DOC_API_KEY = process.env.DOC_GROQ_API_KEY;
+                if (!GROQ_DOC_API_KEY) {
                     throw new Error('Groq API key missing in server');
                 }
 
@@ -237,7 +237,7 @@ Documentation:`;
                 const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${GROQ_API_KEY}`,
+                        'Authorization': `Bearer ${GROQ_DOC_API_KEY}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
@@ -425,7 +425,7 @@ TECHNICAL DEPTH:
             : `Question: ${message}`;
 
         const requestBody = {
-            model:"llama3-70b-8192",
+            model:"llama-3.1-8b-instant",
             messages: [
                 {
                     role: 'system',
