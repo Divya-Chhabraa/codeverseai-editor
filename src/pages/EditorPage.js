@@ -12,26 +12,29 @@ import {
 } from 'react-router-dom';
 
 const EditorPage = () => {
-    const socketRef = useRef(null);
-    const codeRef = useRef(null);
-    const editorRef= useRef(null);
-    const[language, setLanguage]=useState(langFromQuery||'javascript');
     const location = useLocation();
     const { roomId } = useParams();
     const reactNavigator = useNavigate();
+
+    // 🔹 Correct order
+    const searchParams = new URLSearchParams(location.search);
+    const langFromQuery = searchParams.get('lang') || 'javascript';
+    const usernameFromQuery = searchParams.get('username') || '';
+
+    const username =
+        (location.state && location.state.username) || usernameFromQuery;
+
+    const [language, setLanguage] = useState(langFromQuery);
+
+    const socketRef = useRef(null);
+    const codeRef = useRef(null);
+    const editorRef = useRef(null);
+
     const [clients, setClients] = useState([]);
     const [isConnecting, setIsConnecting] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
     const [copied, setCopied] = useState(false);
-    const langFromQuery = searchParams.get('lang');
 
-    // 🔹 Get username from query params as fallback
-    const searchParams = new URLSearchParams(location.search);
-    const usernameFromQuery = searchParams.get('username') || '';
-
-    // Final username coming either from Home (state) or dashboard (query)
-    const username =
-        (location.state && location.state.username) || usernameFromQuery;
         
     const copyRoomId = async () => {
     const shareMessage = `🚀 Join me on CodeVerse AI!

@@ -50,6 +50,24 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         return urlParams.get('filename') || 'Untitled';
     };
 
+    const formatTime = (timestamp) => {
+        if (!timestamp) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        // If timestamp is a number, convert to Date
+        if (typeof timestamp === 'number') {
+            return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // If it's already a string, return as is
+        if (typeof timestamp === 'string') {
+            return timestamp;
+        }
+        
+        // Default fallback
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+
     const [currentFilename] = useState(getFilenameFromUrl());
 
     /* ---------------- TERMINAL RESIZE HANDLER ---------------- */
@@ -376,6 +394,17 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             });
         };
 
+        if (chatMessages.length === 0) {
+            const welcomeMessage = {
+                id: Date.now(),
+                text: 'Welcome to CodeVerse AI! Start coding collaboratively...',
+                sender: 'System',
+                timestamp: Date.now(), // Add timestamp
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setChatMessages([welcomeMessage]);
+        }
+
         const handleAiMessage = (message) => {
             setAiMessages((prev) => {
                 const isDuplicate = prev.some(m => 
@@ -577,6 +606,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     /* ---------------- Chat Message Component ---------------- */
     const ChatMessage = ({ message }) => {
         const isMe = message.sender === username;
+        const displayTime = formatTime(message.timestamp || message.time);
         
         return (
             <div
