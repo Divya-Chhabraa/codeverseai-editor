@@ -44,7 +44,7 @@ const EditorPage = () => {
     👤 Host: ${username}
     🆔 Room ID: ${roomId}
     🔗 Quick Join Link:
-    ${window.location.origin}/editor/${roomId}?username=Guest
+    ${window.location.origin}/editor/${roomId}
 
     ✨ What you can do:
     • Code together in real-time
