@@ -15,6 +15,14 @@ const Home = () => {
         toast.success('Created a new room');
     };
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const roomFromURL = params.get("roomId");
+        if (roomFromURL) {
+            setRoomId(roomFromURL);
+        }
+    }, []);
+
     const joinRoom = () => {
         if (!roomId || !username) {
             toast.error('ROOM ID & username is required');

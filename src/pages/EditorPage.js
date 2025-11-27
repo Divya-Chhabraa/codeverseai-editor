@@ -37,14 +37,14 @@ const EditorPage = () => {
 
         
     const copyRoomId = async () => {
-    const shareMessage = `🚀 Join me on CodeVerse AI!
+        const shareMessage = `🚀 Join me on CodeVerse AI!
 
     I'm working inside a real-time collaborative coding room — and I'd love for you to join!
 
     👤 Host: ${username}
     🆔 Room ID: ${roomId}
     🔗 Quick Join Link:
-    ${window.location.origin}/editor/${roomId}
+    ${window.location.origin}/?roomId=${roomId}
 
     ✨ What you can do:
     • Code together in real-time
@@ -65,6 +65,7 @@ const EditorPage = () => {
             console.error(err);
         }
     };
+
 
     
     useEffect(() => {
