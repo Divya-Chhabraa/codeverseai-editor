@@ -381,6 +381,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         };
 
         const handleChatMessage = (message) => {
+            const messageWithTimestamp = {
+                ...message,
+                timestamp: message.timestamp || Date.now(),
+                time: formatTime(message.timestamp || Date.now())
+            };
             setChatMessages((prev) => {
                 const isDuplicate = prev.some(m => 
                     m.id === message.id || 
@@ -550,7 +555,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         const messageData = {
             roomId,
             message: {
-                text: chatText.trim()
+                text: chatText.trim(),
+                timestamp: Date.now(),
+                time: formatTime(Date.now())
             }
         };
 
@@ -657,7 +664,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 marginTop: '2px',
                             }}
                         >
-                            {message.time}
+                            {displayTime}
                         </div>
                     </div>
                 </div>
