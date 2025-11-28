@@ -329,9 +329,10 @@ const EditorPage = () => {
     } */
 
     function leaveRoom() {
-        window.location.href = `https://codeverseai.streamlit.app/?page=dashboard`;
+    const token = localStorage.getItem("accessToken"); // read stored login token
+    window.location.href = `https://codeverseai.streamlit.app/?page=dashboard&token=${token}`;
+}
 
-    }
     // eslint-disable-next-line no-unused-vars
     const downloadCodeFile = () => {
   if (!editorRef.current) return;
