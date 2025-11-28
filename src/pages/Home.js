@@ -48,11 +48,13 @@ const Home = () => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            height: '100vh',
+            minHeight: '100vh',
+            height: '100%',
             backgroundColor: '#0a0f1c',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            padding: '20px 16px'
         }}>
             {/* Background Pattern */}
             <div style={{
@@ -72,13 +74,14 @@ const Home = () => {
                 opacity: 0.4
             }}></div>
 
-            {/* Floating Code Icons */}
+            {/* Floating Code Icons - Hidden on mobile, visible on tablet and up */}
             <div style={{
                 position: 'absolute',
                 top: '20%',
                 left: '10%',
                 fontSize: '24px',
-                opacity: 0.05
+                opacity: 0.05,
+                display: window.innerWidth < 768 ? 'none' : 'block'
             }}>{'</>'}</div>
 
             <div style={{
@@ -86,7 +89,8 @@ const Home = () => {
                 top: '70%',
                 right: '15%',
                 fontSize: '20px',
-                opacity: 0.05
+                opacity: 0.05,
+                display: window.innerWidth < 768 ? 'none' : 'block'
             }}>{'{}'}</div>
 
             <div style={{
@@ -94,7 +98,8 @@ const Home = () => {
                 top: '30%',
                 right: '20%',
                 fontSize: '18px',
-                opacity: 0.04
+                opacity: 0.04,
+                display: window.innerWidth < 768 ? 'none' : 'block'
             }}>{'<>'}</div>
 
             <div style={{
@@ -102,28 +107,31 @@ const Home = () => {
                 bottom: '20%',
                 left: '15%',
                 fontSize: '22px',
-                opacity: 0.05
+                opacity: 0.05,
+                display: window.innerWidth < 768 ? 'none' : 'block'
             }}>{'()'}</div>
 
             {/* Main Content */}
             <div style={{
                 backgroundColor: '#0f172a',
-                padding: '40px',
+                padding: window.innerWidth < 768 ? '24px 20px' : window.innerWidth < 1024 ? '32px 28px' : '40px',
                 borderRadius: '16px',
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                 border: '1px solid #334155',
-                width: '400px',
+                width: '100%',
+                maxWidth: window.innerWidth < 768 ? '340px' : '400px',
                 textAlign: 'center',
                 position: 'relative',
-                zIndex: 10
+                zIndex: 10,
+                margin: 'auto'
             }}>
-                {/* Logo - EXACTLY AS YOU SPECIFIED */}
+                {/* Logo */}
                 <div style={{
-                    marginBottom: '30px'
+                    marginBottom: window.innerWidth < 768 ? '24px' : '30px'
                 }}>
                     <div
                         style={{
-                            fontSize: '36px',
+                            fontSize: window.innerWidth < 768 ? '28px' : '36px',
                             fontWeight: 'bold',
                             background: 'linear-gradient(135deg, #61dafb, #bd93f9)',
                             WebkitBackgroundClip: 'text',
@@ -136,7 +144,7 @@ const Home = () => {
                     </div>
                     <div
                         style={{
-                            fontSize: '14px',
+                            fontSize: window.innerWidth < 768 ? '12px' : '14px',
                             color: '#bd93f9',
                             fontWeight: '500'
                         }}
@@ -149,8 +157,8 @@ const Home = () => {
                 <div style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '16px',
-                    marginBottom: '20px'
+                    gap: '14px',
+                    marginBottom: window.innerWidth < 768 ? '16px' : '20px'
                 }}>
                     <input
                         type="text"
@@ -162,11 +170,13 @@ const Home = () => {
                             backgroundColor: '#1e293b',
                             border: '1px solid #475569',
                             borderRadius: '8px',
-                            padding: '12px 16px',
+                            padding: window.innerWidth < 768 ? '14px 12px' : '12px 16px',
                             color: '#f8fafc',
-                            fontSize: '14px',
+                            fontSize: window.innerWidth < 768 ? '16px' : '14px', // Larger font for mobile
                             outline: 'none',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            width: '100%',
+                            boxSizing: 'border-box'
                         }}
                         onFocus={(e) => {
                             e.target.style.borderColor = '#8b5cf6';
@@ -187,11 +197,13 @@ const Home = () => {
                             backgroundColor: '#1e293b',
                             border: '1px solid #475569',
                             borderRadius: '8px',
-                            padding: '12px 16px',
+                            padding: window.innerWidth < 768 ? '14px 12px' : '12px 16px',
                             color: '#f8fafc',
-                            fontSize: '14px',
+                            fontSize: window.innerWidth < 768 ? '16px' : '14px', // Larger font for mobile
                             outline: 'none',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            width: '100%',
+                            boxSizing: 'border-box'
                         }}
                         onFocus={(e) => {
                             e.target.style.borderColor = '#8b5cf6';
@@ -209,19 +221,28 @@ const Home = () => {
                             backgroundColor: '#8b5cf6',
                             border: 'none',
                             borderRadius: '8px',
-                            padding: '12px 16px',
+                            padding: window.innerWidth < 768 ? '14px 12px' : '12px 16px',
                             color: '#fff',
-                            fontSize: '14px',
+                            fontSize: window.innerWidth < 768 ? '16px' : '14px',
                             fontWeight: 'bold',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
-                            marginTop: '8px'
+                            marginTop: '8px',
+                            width: '100%'
                         }}
                         onMouseOver={(e) => {
                             e.target.style.backgroundColor = '#7c3aed';
                             e.target.style.transform = 'translateY(-1px)';
                         }}
                         onMouseOut={(e) => {
+                            e.target.style.backgroundColor = '#8b5cf6';
+                            e.target.style.transform = 'translateY(0)';
+                        }}
+                        onTouchStart={(e) => {
+                            e.target.style.backgroundColor = '#7c3aed';
+                            e.target.style.transform = 'translateY(-1px)';
+                        }}
+                        onTouchEnd={(e) => {
                             e.target.style.backgroundColor = '#8b5cf6';
                             e.target.style.transform = 'translateY(0)';
                         }}
@@ -232,10 +253,11 @@ const Home = () => {
 
                 {/* Create New Room */}
                 <div style={{
-                    fontSize: '14px',
+                    fontSize: window.innerWidth < 768 ? '13px' : '14px',
                     color: '#94a3b8',
                     borderTop: '1px solid #334155',
-                    paddingTop: '20px'
+                    paddingTop: window.innerWidth < 768 ? '16px' : '20px',
+                    lineHeight: '1.5'
                 }}>
                     If you don't have an invite then create{' '}
                     <button
@@ -248,7 +270,7 @@ const Home = () => {
                             fontWeight: 'bold',
                             cursor: 'pointer',
                             borderBottom: '1px dashed #8b5cf6',
-                            fontSize: '14px',
+                            fontSize: window.innerWidth < 768 ? '13px' : '14px',
                             padding: '0',
                             margin: '0'
                         }}
@@ -260,6 +282,14 @@ const Home = () => {
                             e.target.style.color = '#8b5cf6';
                             e.target.style.borderBottomColor = '#8b5cf6';
                         }}
+                        onTouchStart={(e) => {
+                            e.target.style.color = '#3b82f6';
+                            e.target.style.borderBottomColor = '#3b82f6';
+                        }}
+                        onTouchEnd={(e) => {
+                            e.target.style.color = '#8b5cf6';
+                            e.target.style.borderBottomColor = '#8b5cf6';
+                        }}
                     >
                         new room
                     </button>
@@ -268,7 +298,7 @@ const Home = () => {
                 {/* Room ID Display (when created) */}
                 {roomId && (
                     <div style={{
-                        marginTop: '20px',
+                        marginTop: '16px',
                         padding: '12px',
                         backgroundColor: '#1e293b',
                         borderRadius: '6px',
@@ -283,10 +313,11 @@ const Home = () => {
                             Room Created!
                         </div>
                         <div style={{
-                            fontSize: '11px',
+                            fontSize: window.innerWidth < 768 ? '10px' : '11px',
                             color: '#f8fafc',
                             fontFamily: 'Monaco, "Courier New", monospace',
-                            wordBreak: 'break-all'
+                            wordBreak: 'break-all',
+                            lineHeight: '1.4'
                         }}>
                             {roomId}
                         </div>
