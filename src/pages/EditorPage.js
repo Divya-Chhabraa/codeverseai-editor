@@ -331,7 +331,7 @@ const EditorPage = () => {
     function leaveRoom() {
         reactNavigator('/');
     }
-
+    // eslint-disable-next-line no-unused-vars
     const downloadCodeFile = () => {
   if (!editorRef.current) return;
   

@@ -21,34 +21,36 @@ const AutoDoc = ({
   const [error, setError] = useState('');
   
   useEffect(() => {
-    if (!socketRef?.current) {
-      console.log('❌ No socket ref available');
-      return;
+  if (!socketRef?.current) {
+    console.log('❌ No socket ref available');
+    return;
+  }
+
+  console.log('👂 Setting up AI_DOC_RESULT listener...');
+
+  const socket = socketRef.current; 
+
+  const handleDocResult = (data) => {
+    console.log('📨 Received documentation result:', data);
+    setIsGenerating(false);
+
+    if (data.error) {
+      setError(data.error);
+      console.error('❌ Documentation error:', data.error);
+    } else {
+      setDocumentation(data.documentation);
+      console.log('✅ Documentation received and set in state!');
     }
+  };
 
-    console.log('👂 Setting up AI_DOC_RESULT listener...');
+  socket.on(ACTIONS.AI_DOC_RESULT, handleDocResult);
 
-    const handleDocResult = (data) => {
-      console.log('📨 Received documentation result:', data);
-      setIsGenerating(false);
-      
-      if (data.error) {
-        setError(data.error);
-        console.error('❌ Documentation error:', data.error);
-      } else {
-        setDocumentation(data.documentation);
-        console.log('✅ Documentation received and set in state!');
-      }
-    };
+  return () => {
+    console.log("🧹 Cleaning AI_DOC_RESULT listener...");
+    socket.off(ACTIONS.AI_DOC_RESULT, handleDocResult);
+  };
+}, [socketRef]);
 
-    socketRef.current.on(ACTIONS.AI_DOC_RESULT, handleDocResult);
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.off(ACTIONS.AI_DOC_RESULT, handleDocResult);
-      }
-    };
-  }, [socketRef]);
 
   // ... rest of your code
 

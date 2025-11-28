@@ -38,7 +38,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [terminalFontSize, setTerminalFontSize] = useState(13);
     const [copyPopup, setCopyPopup] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
-    const [showShareModal, setShowShareModal] = useState(false);
 
     // Sync states
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);
@@ -381,11 +380,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         };
 
         const handleChatMessage = (message) => {
-            const messageWithTimestamp = {
-                ...message,
-                timestamp: message.timestamp || Date.now(),
-                time: formatTime(message.timestamp || Date.now())
-            };
             setChatMessages((prev) => {
                 const isDuplicate = prev.some(m => 
                     m.id === message.id || 
