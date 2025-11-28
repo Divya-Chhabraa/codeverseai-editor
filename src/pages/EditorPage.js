@@ -331,6 +331,7 @@ const EditorPage = () => {
     function leaveRoom() {
     const token = localStorage.getItem("accessToken"); // read stored login token
     window.location.href = `https://codeverseai.streamlit.app/?page=dashboard&token=${token}`;
+    window.location.href = loginUrl;
 }
 
     // eslint-disable-next-line no-unused-vars
