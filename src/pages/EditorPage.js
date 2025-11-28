@@ -329,10 +329,15 @@ const EditorPage = () => {
     } */
 
     function leaveRoom() {
-    const token = localStorage.getItem("accessToken"); // read stored login token
-    window.location.href = `https://codeverseai.streamlit.app/?page=dashboard&token=${token}`;
+    // Try closing this tab (works only if opened via script)
+    window.open('', '_self');
+    window.close();
 
+    // Fallback: redirect to dashboard if tab wasn't auto-opened
+    const token = localStorage.getItem("accessToken");
+    window.location.href = `https://codeverseai.streamlit.app?token=${token}`;
 }
+
 
     // eslint-disable-next-line no-unused-vars
     const downloadCodeFile = () => {
