@@ -329,7 +329,8 @@ const EditorPage = () => {
     } */
 
     function leaveRoom() {
-        reactNavigator('/');
+        window.location.href = `https://codeverseai.streamlit.app/?page=dashboard`;
+
     }
     // eslint-disable-next-line no-unused-vars
     const downloadCodeFile = () => {
