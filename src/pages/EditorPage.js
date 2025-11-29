@@ -220,7 +220,6 @@ Let's build something amazing together! 💻🔥`;
     }
 
     function leaveRoom() {
-    // Try closing this tab (works only if opened via script)
     window.open('', '_self');
     window.close();
 
