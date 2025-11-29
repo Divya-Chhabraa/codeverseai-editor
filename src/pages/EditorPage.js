@@ -220,8 +220,10 @@ Let's build something amazing together! 💻🔥`;
     }
 
     function leaveRoom() {
-        reactNavigator('/');
+        const token = localStorage.getItem("accessToken"); // read stored login token
+        window.location.href = `https://codeverseai.streamlit.app/?page=dashboard&token=${token}`;
     }
+
 
     const theme = {
         background: '#0a0f1c',
