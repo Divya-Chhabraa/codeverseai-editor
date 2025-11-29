@@ -205,9 +205,8 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 🔹 AI Documentation via Socket.IO
-    // 🔹 AI Documentation via Socket.IO - UPDATED MODELS
-// 🔹 AI Documentation via Socket.IO - FINAL WORKING VERSION
+    
+        // 🔹 AI Documentation via Socket.IO - FINAL WORKING VERSION
         socket.on(ACTIONS.AI_DOC_REQUEST, async ({ roomId, code, language, username }) => {
             try {
                 console.log('📄 AI Documentation requested from room:', roomId);
@@ -241,7 +240,7 @@ Documentation:`;
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'llama-3.1-8b-instant', // ✅ CONFIRMED WORKING MODEL
+                        model: 'llama-3.1-8b-instant',
                         messages: [{ role: 'user', content: prompt }],
                         temperature: 0.3,
                         max_tokens: 1024,
