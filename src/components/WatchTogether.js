@@ -295,76 +295,7 @@ const WatchTogether = ({ roomId, socketRef, isSocketReady, theme, isDarkMode }) 
                     justifyContent: 'space-between',
                     marginBottom: '15px' 
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <h4 style={{ margin: 0, color: theme.text }}>🎥 Watch Together</h4>
-                        <div style={{
-                            fontSize: '12px',
-                            padding: '4px 8px',
-                            borderRadius: '12px',
-                            background: isHost ? '#10b981' : '#6b7280',
-                            color: 'white',
-                            fontWeight: 'bold'
-                        }}>
-                            {isHost ? '🎮 HOST' : '👀 VIEWER'}
-                        </div>
-                        {videoType && (
-                            <div style={{
-                                fontSize: '10px',
-                                padding: '2px 6px',
-                                borderRadius: '8px',
-                                background: videoType === 'youtube' ? '#ff0000' : '#3b82f6',
-                                color: 'white',
-                            }}>
-                                {videoType === 'youtube' ? 'YouTube' : 'HTML5'}
-                            </div>
-                        )}
-                        {isSyncing && (
-                            <div style={{
-                                fontSize: '12px',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                background: '#f59e0b',
-                                color: 'white'
-                            }}>
-                                Syncing...
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        {!isHost && videoUrl && (
-                            <button 
-                                onClick={handleBecomeHost}
-                                style={{
-                                    padding: '6px 12px',
-                                    background: '#f59e0b',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                🎮 Become Host
-                            </button>
-                        )}
-                        <button 
-                            onClick={handleSyncRequest}
-                            style={{
-                                padding: '6px 12px',
-                                background: theme.accent,
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            🔄 Sync Now
-                        </button>
-                    </div>
+                    <h4 style={{ margin: 0, color: theme.text }}>🎥 Watch Together</h4>
                 </div>
                 
                 <div className="video-url-input" style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
@@ -473,57 +404,10 @@ const WatchTogether = ({ roomId, socketRef, isSocketReady, theme, isDarkMode }) 
                         fontSize: '14px',
                         color: theme.textSecondary
                     }}>
-                        <span>
-                            {videoType === 'html5' ? `Time: ${formatTime(currentTime)}` : 'YouTube Video'}
-                        </span>
-                        <span>Status: {isPlaying ? '▶️ Playing' : '⏸️ Paused'}</span>
+                      
                     </div>
                     
-                    {isHost ? (
-                        <div style={{
-                            background: '#d1fae5',
-                            border: '1px solid #10b981',
-                            borderRadius: '4px',
-                            padding: '10px',
-                            marginTop: '10px',
-                            textAlign: 'center',
-                            color: '#065f46',
-                            fontSize: '14px'
-                        }}>
-                            <p style={{ margin: 0, fontWeight: 'bold' }}>🎮 You are the HOST</p>
-                            <p style={{ margin: '5px 0 0 0', fontSize: '12px' }}>
-                                {videoType === 'html5' 
-                                    ? 'Your play/pause/seek actions will sync perfectly with all viewers.' 
-                                    : 'Your play/pause actions will sync with all viewers.'}
-                            </p>
-                            {videoType === 'html5' && (
-                                <p style={{ margin: '5px 0 0 0', fontSize: '10px', opacity: 0.8 }}>
-                                    ✅ Perfect timing sync supported
-                                </p>
-                            )}
-                        </div>
-                    ) : (
-                        <div style={{
-                            background: '#fff3cd',
-                            border: '1px solid #ffeaa7',
-                            borderRadius: '4px',
-                            padding: '10px',
-                            marginTop: '10px',
-                            textAlign: 'center',
-                            color: '#856404',
-                            fontSize: '14px'
-                        }}>
-                            <p style={{ margin: 0, fontWeight: 'bold' }}>👀 You are a VIEWER</p>
-                            <p style={{ margin: '5px 0 0 0', fontSize: '12px' }}>
-                                Click "Become Host" to take control of playback.
-                            </p>
-                            {videoType === 'html5' && (
-                                <p style={{ margin: '5px 0 0 0', fontSize: '10px', opacity: 0.8 }}>
-                                    ✅ Perfect timing sync enabled
-                                </p>
-                            )}
-                        </div>
-                    )}
+                    
                 </div>
             )}
 
