@@ -16,6 +16,13 @@ const ACTIONS = {
     SYNC_CODE_REQUEST: 'sync-code-request',
     AI_DOC_REQUEST:'ai-doc-request',
     AI_DOC_RESULT:'ai-doc-result',
+    VIDEO_JOIN: 'video-join',
+    VIDEO_PLAY: 'video-play',
+    VIDEO_PAUSE: 'video-pause',
+    VIDEO_SEEK: 'video-seek',
+    VIDEO_CHANGE: 'video-change',
+    VIDEO_STATE_SYNC: 'video-state-sync',
+    VIDEO_SYNC_REQUEST: 'video-sync-request',
 };
 
 module.exports = ACTIONS;

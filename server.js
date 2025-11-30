@@ -49,6 +49,7 @@ const roomCodeState = {};
 const roomLanguageState = {};
 const roomOutputState = {};
 const roomInputState = {};
+const roomVideoState = {};
 
 function getAllConnectedClients(roomId) {
     return Array.from(io.sockets.adapter.rooms.get(roomId) || []).map(
@@ -205,18 +206,17 @@ io.on('connection', (socket) => {
         });
     });
 
-    
-        // 🔹 AI Documentation via Socket.IO - FINAL WORKING VERSION
-        socket.on(ACTIONS.AI_DOC_REQUEST, async ({ roomId, code, language, username }) => {
-            try {
-                console.log('📄 AI Documentation requested from room:', roomId);
+    // 🔹 AI Documentation via Socket.IO - FINAL WORKING VERSION
+    socket.on(ACTIONS.AI_DOC_REQUEST, async ({ roomId, code, language, username }) => {
+        try {
+            console.log('📄 AI Documentation requested from room:', roomId);
 
-                const GROQ_DOC_API_KEY = process.env.DOC_GROQ_API_KEY;
-                if (!GROQ_DOC_API_KEY) {
-                    throw new Error('Groq API key missing in server');
-                }
+            const GROQ_DOC_API_KEY = process.env.DOC_GROQ_API_KEY;
+            if (!GROQ_DOC_API_KEY) {
+                throw new Error('Groq API key missing in server');
+            }
 
-                const prompt = `
+            const prompt = `
 Generate CRISP technical documentation for this ${language} code.
 Requirements:
 - MAX 8-12 lines total
@@ -233,47 +233,159 @@ ${code}
 
 Documentation:`;
 
-                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${GROQ_DOC_API_KEY}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        model: 'llama-3.1-8b-instant',
-                        messages: [{ role: 'user', content: prompt }],
-                        temperature: 0.3,
-                        max_tokens: 1024,
-                    }),
-                });
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${GROQ_DOC_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.1-8b-instant',
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.3,
+                    max_tokens: 1024,
+                }),
+            });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Groq API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-                }
-
-                const data = await response.json();
-                const documentationText =
-                    data.choices?.[0]?.message?.content || 'No documentation generated';
-
-                console.log('📄 Documentation generated successfully.');
-
-                io.to(roomId).emit(ACTIONS.AI_DOC_RESULT, {
-                    documentation: documentationText,
-                    language,
-                    username,
-                });
-
-            } catch (error) {
-                console.error('❌ AI Documentation Error:', error);
-
-                io.to(roomId).emit(ACTIONS.AI_DOC_RESULT, {
-                    error: error.message,
-                    language,
-                    username,
-                });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Groq API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
             }
+
+            const data = await response.json();
+            const documentationText =
+                data.choices?.[0]?.message?.content || 'No documentation generated';
+
+            console.log('📄 Documentation generated successfully.');
+
+            io.to(roomId).emit(ACTIONS.AI_DOC_RESULT, {
+                documentation: documentationText,
+                language,
+                username,
+            });
+
+        } catch (error) {
+            console.error('❌ AI Documentation Error:', error);
+
+            io.to(roomId).emit(ACTIONS.AI_DOC_RESULT, {
+                error: error.message,
+                language,
+                username,
+            });
+        }
+    });
+
+    /* =============== VIDEO SYNC EVENTS =============== */
+    socket.on(ACTIONS.VIDEO_JOIN, ({ roomId }) => {
+        socket.join(`video-${roomId}`);
+        console.log(`🎥 User ${socket.id} joined video room: ${roomId}`);
+        
+        // Send current video state to new user IMMEDIATELY
+        if (roomVideoState[roomId]) {
+            console.log(`🎥 Sending current state to new user:`, roomVideoState[roomId]);
+            // Add a small delay to ensure client is ready
+            setTimeout(() => {
+                socket.emit(ACTIONS.VIDEO_STATE_SYNC, roomVideoState[roomId]);
+            }, 500);
+        }
+    });
+
+    socket.on(ACTIONS.VIDEO_PLAY, (data) => {
+        const { roomId, currentTime, videoUrl, timestamp } = data;
+        
+        console.log(`🎥 VIDEO_PLAY: Room ${roomId}, Time: ${currentTime}`);
+        
+        // Update room state
+        roomVideoState[roomId] = {
+            isPlaying: true,
+            currentTime: currentTime,
+            videoUrl: videoUrl,
+            timestamp: timestamp,
+            lastAction: 'play'
+        };
+        
+        // Broadcast to ALL other users (not the sender)
+        socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_PLAY, {
+            roomId,
+            currentTime: currentTime,
+            videoUrl: videoUrl,
+            timestamp: timestamp,
+            forceSync: true
         });
+    });
+
+    socket.on(ACTIONS.VIDEO_PAUSE, (data) => {
+        const { roomId, currentTime, videoUrl, timestamp } = data;
+        
+        console.log(`🎥 VIDEO_PAUSE: Room ${roomId}, Time: ${currentTime}`);
+        
+        roomVideoState[roomId] = {
+            isPlaying: false,
+            currentTime: currentTime,
+            videoUrl: videoUrl,
+            timestamp: timestamp,
+            lastAction: 'pause'
+        };
+        
+        // Broadcast to ALL other users (not the sender)
+        socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_PAUSE, {
+            roomId,
+            currentTime: currentTime,
+            videoUrl: videoUrl,
+            timestamp: timestamp,
+            forceSync: true
+        });
+    });
+
+    socket.on(ACTIONS.VIDEO_SEEK, (data) => {
+        const { roomId, currentTime, timestamp } = data;
+        
+        console.log(`🎥 VIDEO_SEEK: Room ${roomId}, Time: ${currentTime}`);
+        
+        if (roomVideoState[roomId]) {
+            roomVideoState[roomId].currentTime = currentTime;
+            roomVideoState[roomId].timestamp = timestamp;
+            roomVideoState[roomId].lastAction = 'seek';
+        }
+        
+        // Broadcast to ALL other users (not the sender)
+        socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_SEEK, {
+            roomId,
+            currentTime: currentTime,
+            timestamp: timestamp,
+            forceSync: true
+        });
+    });
+
+    socket.on(ACTIONS.VIDEO_CHANGE, (data) => {
+        const { roomId, videoUrl, timestamp } = data;
+        
+        console.log(`🎥 VIDEO_CHANGE: Room ${roomId}, New URL: ${videoUrl}`);
+        
+        roomVideoState[roomId] = {
+            isPlaying: true,
+            currentTime: 0,
+            videoUrl: videoUrl,
+            timestamp: timestamp,
+            lastAction: 'change'
+        };
+        
+        // Broadcast to ALL other users (not the sender)
+        socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_CHANGE, {
+            roomId,
+            videoUrl: videoUrl,
+            timestamp: timestamp,
+            forceSync: true
+        });
+    });
+
+    socket.on(ACTIONS.VIDEO_SYNC_REQUEST, ({ roomId }) => {
+        console.log(`🎥 VIDEO_SYNC_REQUEST from ${socket.id} for room: ${roomId}`);
+        if (roomVideoState[roomId]) {
+            socket.emit(ACTIONS.VIDEO_STATE_SYNC, roomVideoState[roomId]);
+        }
+    });
+
     socket.on('disconnecting', () => {
         const rooms = [...socket.rooms];
         rooms.forEach((roomId) => {
@@ -282,6 +394,8 @@ Documentation:`;
                 username: userSocketMap[socket.id],
             });
 
+    
+
             const clientsInRoom = io.sockets.adapter.rooms.get(roomId);
             if (!clientsInRoom || clientsInRoom.size === 0) {
                 delete roomAiChatHistory[roomId];
@@ -289,6 +403,7 @@ Documentation:`;
                 delete roomLanguageState[roomId];
                 delete roomOutputState[roomId];
                 delete roomInputState[roomId];
+                delete roomVideoState[roomId];
             }
         });
         delete userSocketMap[socket.id];
