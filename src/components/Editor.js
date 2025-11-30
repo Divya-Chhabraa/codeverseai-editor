@@ -39,14 +39,11 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [terminalFontSize, setTerminalFontSize] = useState(13);
     const [copyPopup, setCopyPopup] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
+    const [isWatchTogether, setIsWatchTogether] = useState(false);
 
     // Sync states
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);
     const [initialOutputReceived, setInitialOutputReceived] = useState(false);
-
-    // Watch Together states
-    const [layoutMode, setLayoutMode] = useState('editor'); // 'editor' | 'split'
-    const [showWatchTogether, setShowWatchTogether] = useState(false);
 
     // Extract filename from URL parameters
     const getFilenameFromUrl = () => {
@@ -70,6 +67,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         // Default fallback
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
+
 
     const [currentFilename] = useState(getFilenameFromUrl());
 
@@ -688,16 +686,16 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
     return (
         <div
-            style={{
-                display: 'flex',
-                height: '100vh',
-                backgroundColor: theme.background,
-                color: theme.text,
-                overflow: 'hidden',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                position: 'relative',
-            }}
-        >
+        style={{
+            display: 'flex',
+            height: '100vh',
+            backgroundColor: theme.background,
+            color: theme.text,
+            overflow: 'hidden',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            position: 'relative',
+        }}
+    >
             {/* Background Pattern */}
             <div style={{
                 position: 'absolute',
@@ -759,8 +757,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 style={{
                     flex: 1,
                     display: 'flex',
-                    flexDirection: 'column',
+                    flexDirection:'column',
                     minWidth: 0,
+                    minHeight:0,
                     position: 'relative',
                     zIndex: 1,
                 }}
@@ -902,52 +901,23 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
                         {/* WATCH TOGETHER BUTTON */}
                         <button
-                            onClick={() => {
-                                if (layoutMode === 'split') {
-                                    setLayoutMode('editor');
-                                    setShowWatchTogether(false);
-                                } else {
-                                    setLayoutMode('split');
-                                    setShowWatchTogether(true);
-                                }
-                            }}
+                            onClick={() => setIsWatchTogether(!isWatchTogether)}
                             style={{
-                                padding: '8px 12px',
+                                padding: '10px 16px',
                                 borderRadius: '8px',
-                                backgroundColor: layoutMode === 'split' ? theme.accent : 'transparent',
-                                border: `1px solid ${layoutMode === 'split' ? theme.accent : theme.border}`,
-                                cursor: 'pointer',
-                                color: layoutMode === 'split' ? 'white' : theme.text,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s ease'
-                            }}
-                            title={layoutMode === 'split' ? 'Hide Watch Together' : 'Show Watch Together'}
-                        >
-                            🎥 {layoutMode === 'split' ? 'Watching' : 'Watch Together'}
-                        </button>
-
-                        {/* FULL SCREEN TOGGLE */}
-                        <button
-                            onClick={() => setIsFullScreen(!isFullScreen)}
-                            style={{
-                                padding: '8px',
-                                borderRadius: '8px',
-                                backgroundColor: 'transparent',
+                                backgroundColor: isWatchTogether ? theme.success : theme.surfaceSecondary,
                                 border: `1px solid ${theme.border}`,
                                 cursor: 'pointer',
                                 color: theme.text,
+                                fontSize: '14px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '16px',
+                                gap: '6px',
+                                fontWeight: 'bold',
                             }}
-                            title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                            title={isWatchTogether ? 'Close Watch Together' : 'Start Watch Together'}
                         >
-                            {isFullScreen ? '📱' : '🖥️'}
+                            {isWatchTogether ? '📺 Close Watch' : '📺 Watch Together'}
                         </button>
 
                         {/* SAVE BUTTON */}
@@ -1027,438 +997,47 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     </div>
                 </div>
 
-                {/* MAIN CONTENT AREA - Editor + Watch Together Split Layout */}
+                {/* Editor + Watch Together Layout */}
                 <div style={{
                     display: 'flex',
-                    height: '100%',
-                    flexDirection: layoutMode === 'split' ? 'row' : 'column',
-                    gap: layoutMode === 'split' ? '10px' : '0',
+                    flexDirection: 'row',
+                    flex: 1,
+                    minHeight: 0,
                     overflow: 'hidden'
                 }}>
                     {/* Editor Area */}
-                    <div style={{ 
-                        flex: layoutMode === 'split' ? 1 : 1,
-                        height: layoutMode === 'split' ? '100%' : (isFullScreen ? '100vh' : 'auto'),
-                        overflow: 'auto',
-                        position: 'relative',
-                        display: layoutMode === 'split' ? 'flex' : 'block',
+                    <div style={{
+                        flex: isWatchTogether ? 1 : 1,
+                        display: 'flex',
                         flexDirection: 'column',
-                        minWidth: 0
+                        minWidth: 0,
+                        borderRight: isWatchTogether ? `1px solid ${theme.border}` : 'none',
                     }}>
-                        <div style={{ 
-                            flex: 1,
-                            display: layoutMode === 'split' ? 'flex' : 'block',
-                            flexDirection: 'column'
-                        }}>
-                            <textarea id="realtimeEditor" style={{
-                                height: layoutMode === 'split' ? '100%' : (isFullScreen ? '100vh' : 'auto'),
-                                minHeight: layoutMode === 'split' ? '400px' : 'auto'
-                            }}></textarea>
-                        </div>
                         
-                        {/* Terminal in split mode (only show if not full screen) */}
-                        {!isFullScreen && layoutMode === 'split' && (isTerminalOpen || isFullScreen) && (
-                            <div style={{
-                                height: '200px',
-                                marginTop: '10px'
-                            }}>
-                                {/* Your existing terminal component */}
-                                {(isTerminalOpen || isFullScreen) && (
-                                    <div
-                                        style={{
-                                            backgroundColor: theme.background,
-                                            borderTop: `1px solid ${theme.border}`,
-                                            height: '200px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            position: 'relative',
-                                        }}
-                                    >
-                                        {/* RESIZE HANDLE */}
-                                        <div
-                                            style={{
-                                                position: 'absolute',
-                                                top: '-4px',
-                                                left: 0,
-                                                right: 0,
-                                                height: '8px',
-                                                cursor: 'row-resize',
-                                                backgroundColor: 'transparent',
-                                                zIndex: 10,
-                                            }}
-                                            onMouseDown={handleResizeMouseDown}
-                                        />
-
-                                        {/* Terminal Header with Tabs */}
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                padding: '0px',
-                                                backgroundColor: isDarkMode ? '#1e293b' : '#e9ecef',
-                                                borderBottom: `1px solid ${theme.border}`,
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                                                <div className="terminal-tabs" style={{ display: 'flex', flex: 1 }}>
-                                                    <button
-                                                        className={`tab ${activeBottomTab === 'terminal' ? 'active' : ''}`}
-                                                        onClick={() => setActiveBottomTab('terminal')}
-                                                        style={{
-                                                            padding: '8px 16px',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            borderRight: `1px solid ${theme.border}`,
-                                                            cursor: 'pointer',
-                                                            color: theme.text,
-                                                            transition: 'background-color 0.2s',
-                                                            backgroundColor: activeBottomTab === 'terminal' ? theme.terminalBg : 'transparent',
-                                                            borderBottom: activeBottomTab === 'terminal' ? `2px solid ${theme.accent}` : 'none',
-                                                            fontSize: '12px',
-                                                            fontWeight: 'bold',
-                                                            flex: 1,
-                                                        }}
-                                                    >
-                                                        TERMINAL
-                                                    </button>
-                                                    <button
-                                                        className={`tab ${activeBottomTab === 'ai' ? 'active' : ''}`}
-                                                        onClick={() => setActiveBottomTab('ai')}
-                                                        style={{
-                                                            padding: '8px 16px',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            borderRight: `1px solid ${theme.border}`,
-                                                            cursor: 'pointer',
-                                                            color: theme.text,
-                                                            transition: 'background-color 0.2s',
-                                                            backgroundColor: activeBottomTab === 'ai' ? theme.terminalBg : 'transparent',
-                                                            borderBottom: activeBottomTab === 'ai' ? `2px solid ${theme.accent}` : 'none',
-                                                            fontSize: '12px',
-                                                            fontWeight: 'bold',
-                                                            flex: 1,
-                                                        }}
-                                                    >
-                                                        AI DEBUG ASSISTANT
-                                                    </button>
-                                                    <button
-                                                        className={`tab ${activeBottomTab === 'input' ? 'active' : ''}`}
-                                                        onClick={() => setActiveBottomTab('input')}
-                                                        style={{
-                                                            padding: '8px 16px',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            cursor: 'pointer',
-                                                            color: theme.text,
-                                                            transition: 'background-color 0.2s',
-                                                            backgroundColor: activeBottomTab === 'input' ? theme.terminalBg : 'transparent',
-                                                            borderBottom: activeBottomTab === 'input' ? `2px solid ${theme.accent}` : 'none',
-                                                            fontSize: '12px',
-                                                            fontWeight: 'bold',
-                                                            flex: 1,
-                                                        }}
-                                                    >
-                                                        AI DOCUMENTATION 
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px' }}>
-                                                {/* FULL SCREEN BUTTON */}
-                                                <button
-                                                    onClick={() => setIsFullScreen(!isFullScreen)}
-                                                    style={{
-                                                        backgroundColor: 'transparent',
-                                                        border: 'none',
-                                                        color: theme.textSecondary,
-                                                        cursor: 'pointer',
-                                                        fontSize: '12px',
-                                                        padding: '4px 8px',
-                                                        borderRadius: '4px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                    }}
-                                                    title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
-                                                >
-                                                    {isFullScreen ? '📱 Exit Full' : '🖥️ Full Screen'}
-                                                </button>
-                                                
-                                                <button
-                                                    onClick={clearTerminal}
-                                                    style={{
-                                                        backgroundColor: 'transparent',
-                                                        border: 'none',
-                                                        color: theme.textSecondary,
-                                                        cursor: 'pointer',
-                                                        fontSize: '12px',
-                                                        padding: '4px 8px',
-                                                        borderRadius: '4px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                    }}
-                                                    title="Clear Terminal"
-                                                >
-                                                    🗑️ Clear
-                                                </button>
-                                                <button
-                                                    onClick={toggleTerminal}
-                                                    style={{
-                                                        backgroundColor: 'transparent',
-                                                        border: 'none',
-                                                        color: theme.textSecondary,
-                                                        cursor: 'pointer',
-                                                        fontSize: '12px',
-                                                        padding: '4px',
-                                                        borderRadius: '4px',
-                                                    }}
-                                                    title="Close Terminal"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Terminal Content Area */}
-                                        <div
-                                        style={{
-                                            flex: 1,
-                                            backgroundColor: theme.terminalBg,
-                                            position: 'relative',
-                                            overflow: 'hidden',
-                                            fontFamily: 'Monaco, "Courier New", monospace',
-                                            fontSize: '13px',
-                                            zIndex: 9999,
-                                        }}
-                                        >
-
-
-                                            {/* TERMINAL Tab */}
-                                            <div
-                                                style={{
-                                                    display: activeBottomTab === 'terminal' ? 'flex' : 'none',
-                                                    flexDirection: 'column',
-                                                    height: '100%',
-                                                    width: '100%',
-                                                    overflow: 'auto',
-                                                }}
-                                            >
-                                                <div className="terminal-output">
-
-                                                    <div style={{
-                                                        position: 'relative',
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        alignItems: 'center',
-                                                        padding: '8px 16px',
-                                                        backgroundColor: isDarkMode ? '#0a0a0f' : '#f8f9fa',
-                                                        borderBottom: `1px solid ${theme.border}`
-                                                    }}>
-                                                        <span style={{ fontSize: '12px', color: theme.textSecondary }}>
-                                                            Terminal Output
-                                                        </span>
-
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                            <button
-                                                                onClick={() => setTerminalFontSize(size => Math.max(10, size - 1))}
-                                                                style={{
-                                                                    padding: '2px 6px',
-                                                                    fontSize: '12px',
-                                                                    borderRadius: '4px',
-                                                                    border: `1px solid ${theme.border}`,
-                                                                    backgroundColor: theme.surfaceSecondary,
-                                                                    color: theme.text,
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                Size -
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setTerminalFontSize(size => Math.min(40, size + 1))}
-                                                                style={{
-                                                                    padding: '2px 6px',
-                                                                    fontSize: '12px',
-                                                                    borderRadius: '4px',
-                                                                    border: `1px solid ${theme.border}`,
-                                                                    backgroundColor: theme.surfaceSecondary,
-                                                                    color: theme.text,
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                Size +
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    if (output) {
-                                                                        navigator.clipboard.writeText(output);
-                                                                        setCopyPopup(true);
-                                                                        setTimeout(() => setCopyPopup(false), 1500);
-                                                                    }
-                                                                }}
-                                                                disabled={!output}
-                                                                style={{
-                                                                    padding: '4px 8px',
-                                                                    border: `1px solid ${theme.border}`,
-                                                                    borderRadius: '4px',
-                                                                    backgroundColor: theme.surfaceSecondary,
-                                                                    color: theme.text,
-                                                                    cursor: output ? 'pointer' : 'not-allowed',
-                                                                    fontSize: '11px',
-                                                                    opacity: output ? 1 : 0.5
-                                                                }}
-                                                            >
-                                                                📋 Copy
-                                                            </button>
-                                                        </div>
-
-                                                        {copyPopup && (
-                                                            <div
-                                                                style={{
-                                                                    position: 'absolute',
-                                                                    top: '40px',
-                                                                    right: '16px',
-                                                                    backgroundColor: theme.accent,
-                                                                    padding: '4px 10px',
-                                                                    borderRadius: '6px',
-                                                                    fontSize: '10px',
-                                                                    color: '#000',
-                                                                    fontWeight: 'bold',
-                                                                    boxShadow: '0px 2px 6px rgba(0,0,0,0.3)',
-                                                                    zIndex: 10
-                                                                }}
-                                                            >
-                                                                ✔ Copied!
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    <div
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '12px 16px',
-                                                            overflowY: 'auto',
-                                                            whiteSpace: 'pre-wrap',
-                                                            color: theme.terminalText,
-                                                            lineHeight: '1.4',
-                                                            fontSize: `${terminalFontSize}px`,
-                                                        }}
-                                                    >
-                                                        {output ? (
-                                                            <div style={{ marginBottom: '8px' }}>
-                                                                {output}
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ color: theme.textSecondary }} />
-                                                        )}
-                                                    </div>
-
-                                                    <div
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px',
-                                                            padding: '8px 16px',
-                                                            backgroundColor: isDarkMode ? '#0f172a' : '#f8f9fa',
-                                                            borderTop: `1px solid ${theme.border}`,
-                                                        }}
-                                                    >
-                                                        <span
-                                                            style={{
-                                                                color: theme.success,
-                                                                fontWeight: 'bold',
-                                                                fontFamily: 'Monaco, "Courier New", monospace',
-                                                            }}
-                                                        >
-                                                            ❯
-                                                        </span>
-                                                        <input
-                                                            ref={terminalInputRef}
-                                                            type="text"
-                                                            placeholder="Type input here and press Enter to run..."
-                                                            onKeyDown={handleTerminalInput}
-                                                            style={{
-                                                                flex: 1,
-                                                                backgroundColor: 'transparent',
-                                                                color: theme.terminalText,
-                                                                border: 'none',
-                                                                outline: 'none',
-                                                                fontFamily: 'Monaco, "Courier New", monospace',
-                                                                fontSize: '13px',
-                                                                padding: '4px 0',
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* AI DEBUG ASSISTANT */}
-                                            <div
-                                                style={{
-                                                    display: activeBottomTab === 'ai' ? 'flex' : 'none',
-                                                    flexDirection: 'column',
-                                                    height: '100%',
-                                                    width: '100%',
-                                                    overflow: 'auto',
-                                                }}
-                                            >
-                                                <DebugAssistant 
-                                                    terminalFontSize={terminalFontSize}
-                                                    currentCode={editorRef.current ? editorRef.current.getValue() : ''}
-                                                    currentLanguage={language}
-                                                    terminalOutput={output}
-                                                    theme={theme}
-                                                    isDarkMode={isDarkMode}
-                                                />
-                                            </div>
-
-                                            {/* AI DOCUMENTATION */}
-                                            <div
-                                                style={{
-                                                    visibility: activeBottomTab === 'input' ? 'visible' : 'hidden',
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                    right: 0,
-                                                    bottom: 0,
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    height: '100%',
-                                                    width: '100%',
-                                                    overflow: 'auto',
-                                                }}
-                                            >
-                                                <AutoDoc 
-                                                    terminalFontSize={terminalFontSize}
-                                                    currentCode={editorRef.current ? editorRef.current.getValue() : ''}
-                                                    currentLanguage={language}
-                                                    theme={theme}
-                                                    isDarkMode={isDarkMode}
-                                                    socketRef={socketRef}
-                                                    username={username}
-                                                    roomId={roomId}
-                                                    isSocketReady={isSocketReady}
-                                                />
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {/* Editor textarea here */}
+                        <div style={{
+                            display: isFullScreen ? 'none' : 'block',
+                            flex: isFullScreen ? 0 : 1,
+                            height: isFullScreen ? '0px' : 'auto',
+                            overflow: 'auto',
+                            position: 'relative',
+                            transition: 'all 0.3s ease',
+                        }}>
+                            <textarea id="realtimeEditor"></textarea>
+                        </div>
                     </div>
 
-                    {/* Watch Together Area - Only show in split mode */}
-                    {layoutMode === 'split' && (
+                    {/* Watch Together Panel */}
+                    {isWatchTogether && (
                         <div style={{
-                            flex: 1,
-                            height: '100%',
-                            minWidth: 0,
+                            width: '450px',
+                            borderLeft: `1px solid ${theme.border}`,
+                            backgroundColor: theme.surface,
                             display: 'flex',
-                            flexDirection: 'column'
+                            flexDirection: 'column',
+                            minWidth: 0,
                         }}>
-                            <WatchTogether 
+                            <WatchTogether
                                 roomId={roomId}
                                 socketRef={socketRef}
                                 isSocketReady={isSocketReady}
@@ -1469,8 +1048,12 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     )}
                 </div>
 
-                {/* Full terminal when not in split mode */}
-                {!isFullScreen && layoutMode !== 'split' && (isTerminalOpen || isFullScreen) && (
+                {/* Editor - Scrollable with Real-time Sync */}
+                
+                       
+
+                {/* COLLAPSIBLE TERMINAL WITH TABS AND RESIZE */}
+                {(isTerminalOpen || isFullScreen) && (
                     <div
                         style={{
                             backgroundColor: theme.background,
@@ -1482,6 +1065,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             position: 'relative',
                         }}
                     >
+
+                
+                
                         {/* RESIZE HANDLE */}
                         <div
                             style={{
@@ -1572,25 +1158,31 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px' }}>
-                                {/* FULL SCREEN BUTTON */}
+                                {/* FULL SCREEN BUTTON - YEH ADD KARO */}
                                 <button
-                                    onClick={() => setIsFullScreen(!isFullScreen)}
-                                    style={{
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        color: theme.textSecondary,
-                                        cursor: 'pointer',
-                                        fontSize: '12px',
-                                        padding: '4px 8px',
-                                        borderRadius: '4px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                    }}
-                                    title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
-                                >
-                                    {isFullScreen ? '📱 Exit Full' : '🖥️ Full Screen'}
-                                </button>
+                                    onClick={() => {
+                                    // Close watch together if open to prevent conflicts
+                                    if (isWatchTogether) {
+                                        setIsWatchTogether(false);
+                                    }
+                                    setIsFullScreen(!isFullScreen);
+                                }}
+                                style={{
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    color: theme.textSecondary,
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                }}
+                                title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                            >
+                                {isFullScreen ? '📱 Exit Full' : '🖥️ Full Screen'}
+                            </button>
                                 
                                 <button
                                     onClick={clearTerminal}
@@ -1652,6 +1244,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                     overflow: 'auto',
                                 }}
                             >
+                                {/* ⬇️ Your entire TERMINAL UI code (unchanged) */}
                                 <div className="terminal-output">
 
                                     <div style={{
@@ -1854,6 +1447,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     </div>
                 )}
             </div>
+
 
             {/* RIGHT PANEL - Switches between Chat and AI Assistant */}
             { isChatOpen && (
