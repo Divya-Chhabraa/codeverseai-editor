@@ -40,6 +40,22 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     const [copyPopup, setCopyPopup] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [isWatchTogether, setIsWatchTogether] = useState(false);
+    const [debugOutput, setDebugOutput] = useState('');
+    const [docOutput, setDocOutput] = useState('');
+    const debugAssistantRef= useRef(null);
+    const autoDocRef= useRef(null);
+
+    // Right panel resizing state
+    const [panelWidth, setPanelWidth] = useState(320);
+    const [isPanelResizing, setIsPanelResizing] = useState(false);
+    const panelResizeStartX = useRef(0);
+    const panelResizeStartWidth = useRef(320);
+
+    // Watch Together panel resizing state
+    const [watchPanelWidth, setWatchPanelWidth] = useState(450);
+    const [isWatchPanelResizing, setIsWatchPanelResizing] = useState(false);
+    const watchPanelResizeStartX = useRef(0);
+    const watchPanelResizeStartWidth = useRef(450);
 
     // Sync states
     const [initialCodeReceived, setInitialCodeReceived] = useState(false);
@@ -68,39 +84,85 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
-
     const [currentFilename] = useState(getFilenameFromUrl());
+
+    /* ---------------- RIGHT PANEL RESIZE HANDLER ---------------- */
+    const handlePanelResizeMouseDown = (e) => {
+        e.preventDefault();
+        setIsPanelResizing(true);
+        panelResizeStartX.current = e.clientX;
+        panelResizeStartWidth.current = panelWidth;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+    };
+
+    /* ---------------- WATCH TOGETHER PANEL RESIZE HANDLER ---------------- */
+    const handleWatchPanelResizeMouseDown = (e) => {
+        e.preventDefault();
+        setIsWatchPanelResizing(true);
+        watchPanelResizeStartX.current = e.clientX;
+        watchPanelResizeStartWidth.current = watchPanelWidth;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+    };
 
     /* ---------------- TERMINAL RESIZE HANDLER ---------------- */
     const handleResizeMouseDown = (e) => {
         e.preventDefault();
         setIsResizing(true);
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'row-resize';
     };
 
+    /* ---------------- RESIZE EVENT HANDLERS ---------------- */
     useEffect(() => {
         const handleMouseMove = (e) => {
-            if (!isResizing) return;
+            if (isPanelResizing) {
+                const deltaX = panelResizeStartX.current - e.clientX;
+                const newWidth = panelResizeStartWidth.current + deltaX;
+                if (newWidth >= 280 && newWidth <= 600) {
+                    setPanelWidth(newWidth);
+                }
+            }
             
-            const newHeight = window.innerHeight - e.clientY;
-            if (newHeight >= 100 && newHeight <= 500) {
-                setTerminalHeight(newHeight);
+            if (isWatchPanelResizing) {
+                const deltaX = watchPanelResizeStartX.current - e.clientX;
+                const newWidth = watchPanelResizeStartWidth.current - deltaX;
+                if (newWidth >= 350 && newWidth <= 600) {
+                    setWatchPanelWidth(newWidth);
+                }
+            }
+            
+            if (isResizing) {
+                const newHeight = window.innerHeight - e.clientY;
+                if (newHeight >= 100 && newHeight <= 500) {
+                    setTerminalHeight(newHeight);
+                }
             }
         };
 
         const handleMouseUp = () => {
-            setIsResizing(false);
+            if (isPanelResizing || isWatchPanelResizing || isResizing) {
+                document.body.style.userSelect = '';
+                document.body.style.cursor = '';
+                setIsPanelResizing(false);
+                setIsWatchPanelResizing(false);
+                setIsResizing(false);
+            }
         };
 
-        if (isResizing) {
+        if (isPanelResizing || isWatchPanelResizing || isResizing) {
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('mouseleave', handleMouseUp);
         }
 
         return () => {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('mouseleave', handleMouseUp);
         };
-    }, [isResizing]);
+    }, [isPanelResizing, isWatchPanelResizing, isResizing]);
 
     /* ---------------- BACKEND URL + FILE LOAD/SAVE HELPERS ---------------- */
     const getBackendUrl = () => {
@@ -111,6 +173,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             ? 'http://localhost:5000'
             : 'https://codeverseai-editor-production.up.railway.app';
     };
+    
     const downloadCodeFile = () => {
         if (!editorRef.current) return;
 
@@ -137,7 +200,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         link.download = filename;
         link.click();
         URL.revokeObjectURL(link.href);
-        };
+    };
 
     const saveFileToServer = async () => {
         if (!editorRef.current) return;
@@ -313,30 +376,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         editorRef.current.setOption('mode', mode);
     }, [language]);
 
-    useEffect(() => {
-    if (!editorRef.current) return;
-    
-    let mode;
-    switch(language) {
-        case 'javascript':
-            mode = 'javascript';
-            break;
-        case 'python':
-            mode = 'python';
-            break;
-        case 'cpp':
-        case 'java':
-            mode = 'text/x-c++src';
-            break;
-        default:
-            mode = 'javascript';
-    }
-    
-    editorRef.current.setOption('mode', mode);
-    }, [language]);
-
-
-
     /* ---------------- UPDATE CODEMIRROR THEME ---------------- */
     useEffect(() => {
         if (!editorRef.current) return;
@@ -369,18 +408,13 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         };
 
         const handleRunOutput = ({ chunk, isEnd }) => {
-    if (chunk) {
-        setOutput(prev => prev + chunk);
-    }
-    if (isEnd) {
-        setIsRunning(false);
-    }
-};
-    // Auto-scroll terminal to bottom
-    
-
-
-
+            if (chunk) {
+                setOutput(prev => prev + chunk);
+            }
+            if (isEnd) {
+                setIsRunning(false);
+            }
+        };
 
         const handleInputChange = ({ input }) => {
             setUserInput(input);
@@ -405,7 +439,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 id: Date.now(),
                 text: 'Welcome to CodeVerse AI! Start coding collaboratively...',
                 sender: 'System',
-                timestamp: Date.now(), // Add timestamp
+                timestamp: Date.now(),
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
             setChatMessages([welcomeMessage]);
@@ -428,16 +462,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 setAiMessages(messages);
             }
         };
-
-        if (chatMessages.length === 0) {
-            const welcomeMessage = {
-                id: Date.now(),
-                text: 'Welcome to CodeVerse AI! Start coding collaboratively...',
-                sender: 'System',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-            setChatMessages([welcomeMessage]);
-        }
 
         if (aiMessages.length === 0) {
             const aiWelcomeMessage = {
@@ -501,17 +525,16 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
     /* ---------------- Run code via backend ---------------- */
     const runCode = () => {
-    if (!socketRef.current || !isSocketReady) return;
-    setOutput('');
-    setIsRunning(true);
+        if (!socketRef.current || !isSocketReady) return;
+        setOutput('');
+        setIsRunning(true);
 
-    socketRef.current.emit('RUN_START', {
-        roomId,
-        code: editorRef.current.getValue(),
-        language,
-    });
-};
-
+        socketRef.current.emit('RUN_START', {
+            roomId,
+            code: editorRef.current.getValue(),
+            language,
+        });
+    };
 
     /* ---------------- Chat input handler ---------------- */
     const handleChatInputChange = (e) => {
@@ -559,35 +582,40 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
     /* ---------------- Handle Terminal Input ---------------- */
     const handleTerminalInput = (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const input = e.target.value.trim();
-        if (!input || !socketRef.current || !isSocketReady) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const input = e.target.value.trim();
+            if (!input || !socketRef.current || !isSocketReady) return;
 
-        // Append the typed input to output (before sending to backend)
-        setOutput((prev) =>
-            prev
-                ? `${prev}\n> ${input}\n` 
-                : `> ${input}\n`
-        );
+            setOutput((prev) =>
+                prev
+                    ? `${prev}\n> ${input}\n` 
+                    : `> ${input}\n`
+            );
 
-        e.target.value = ''; // clear input
+            e.target.value = '';
+            socketRef.current.emit('RUN_INPUT', {
+                roomId,
+                input,
+            });
+        }
+    };
 
-        // Send only input to backend
-        socketRef.current.emit('RUN_INPUT', {
-            roomId,
-            input,
-        });
+    /* ---------------- Clear Terminal/Debug/Doc ---------------- */
+    const clearTerminal = () => {
+        if (activeBottomTab === 'terminal') {
+            setOutput('');
+            setUserInput('');
+        } else if (activeBottomTab === 'ai') {
+            if (debugAssistantRef.current && debugAssistantRef.current.clearOutput) {
+            debugAssistantRef.current.clearOutput();
+        }
+        } else if (activeBottomTab === 'input') {  // ← ADD 'else if' here
+        if (autoDocRef.current && autoDocRef.current.clearOutput) {
+            autoDocRef.current.clearOutput();
+        }
     }
 };
-
-
-
-    /* ---------------- Clear Terminal ---------------- */
-    const clearTerminal = () => {
-        setOutput('');
-        setUserInput('');
-    };
 
     /* ---------------- Chat Message Component ---------------- */
     const ChatMessage = ({ message }) => {
@@ -603,7 +631,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                     padding: '0 8px',
                 }}
             >
-                
                 <div
                     style={{
                         maxWidth: '85%',
@@ -669,16 +696,16 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
     return (
         <div
-        style={{
-            display: 'flex',
-            height: '100vh',
-            backgroundColor: theme.background,
-            color: theme.text,
-            overflow: 'hidden',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            position: 'relative',
-        }}
-    >
+            style={{
+                display: 'flex',
+                height: '100vh',
+                backgroundColor: theme.background,
+                color: theme.text,
+                overflow: 'hidden',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                position: 'relative',
+            }}
+        >
             {/* Background Pattern */}
             <div style={{
                 position: 'absolute',
@@ -740,9 +767,9 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 style={{
                     flex: 1,
                     display: 'flex',
-                    flexDirection:'column',
+                    flexDirection: 'column',
                     minWidth: 0,
-                    minHeight:0,
+                    minHeight: 0,
                     position: 'relative',
                     zIndex: 1,
                 }}
@@ -903,27 +930,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             {isWatchTogether ? '📺 Close Watch' : '📺 Watch Together'}
                         </button>
 
-                        {/* SAVE BUTTON */}
-                        <button
-                            onClick={saveFileToServer}
-                            style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                backgroundColor: theme.success,
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                color: '#000',
-                                fontSize: '14px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                            }}
-                        >
-                            💾 Save
-                        </button>
-
                         <button
                             onClick={runCode}
                             disabled={isRunning}
@@ -954,29 +960,27 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             )}
                         </button>
                         <button
-                        onClick={downloadCodeFile}
-                        style={{
-                            padding: '10px 20px',
-                            borderRadius: '8px',
-                            backgroundColor: theme.accent,
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            color: 'black',
-                            fontSize: '14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                            transition: 'background-color 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => (e.target.style.backgroundColor = theme.success)}
-                        onMouseLeave={(e) => (e.target.style.backgroundColor = theme.accent)}
+                            onClick={downloadCodeFile}
+                            style={{
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                backgroundColor: theme.accent,
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                color: 'black',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                transition: 'background-color 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => (e.target.style.backgroundColor = theme.success)}
+                            onMouseLeave={(e) => (e.target.style.backgroundColor = theme.accent)}
                         >
-                        📥 Download
+                            📥 Download
                         </button>
-
-
                     </div>
                 </div>
 
@@ -996,7 +1000,6 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         minWidth: 0,
                         borderRight: isWatchTogether ? `1px solid ${theme.border}` : 'none',
                     }}>
-                        
                         {/* Editor textarea here */}
                         <div style={{
                             display: isFullScreen ? 'none' : 'block',
@@ -1010,30 +1013,44 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         </div>
                     </div>
 
-                    {/* Watch Together Panel */}
+                    {/* Watch Together Panel with Resize Handle */}
                     {isWatchTogether && (
-                        <div style={{
-                            width: '450px',
-                            borderLeft: `1px solid ${theme.border}`,
-                            backgroundColor: theme.surface,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            minWidth: 0,
-                        }}>
-                            <WatchTogether
-                                roomId={roomId}
-                                socketRef={socketRef}
-                                isSocketReady={isSocketReady}
-                                theme={theme}
-                                isDarkMode={isDarkMode}
+                        <>
+                            {/* Watch Together Resize Handle */}
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    left: `calc(100% - ${watchPanelWidth}px - 320px)`,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: '8px',
+                                    cursor: 'col-resize',
+                                    backgroundColor: 'transparent',
+                                    zIndex: 100,
+                                }}
+                                onMouseDown={handleWatchPanelResizeMouseDown}
                             />
-                        </div>
+                            
+                            <div style={{
+                                width: `${watchPanelWidth}px`,
+                                borderLeft: `1px solid ${theme.border}`,
+                                backgroundColor: theme.surface,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                minWidth: 0,
+                                transition: isWatchPanelResizing ? 'none' : 'all 0.3s ease',
+                            }}>
+                                <WatchTogether
+                                    roomId={roomId}
+                                    socketRef={socketRef}
+                                    isSocketReady={isSocketReady}
+                                    theme={theme}
+                                    isDarkMode={isDarkMode}
+                                />
+                            </div>
+                        </>
                     )}
                 </div>
-
-                {/* Editor - Scrollable with Real-time Sync */}
-                
-                       
 
                 {/* COLLAPSIBLE TERMINAL WITH TABS AND RESIZE */}
                 {(isTerminalOpen || isFullScreen) && (
@@ -1048,10 +1065,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                             position: 'relative',
                         }}
                     >
-
-                
-                
-                        {/* RESIZE HANDLE */}
+                        {/* TERMINAL RESIZE HANDLE */}
                         <div
                             style={{
                                 position: 'absolute',
@@ -1141,31 +1155,30 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px' }}>
-                                {/* FULL SCREEN BUTTON - YEH ADD KARO */}
+                                {/* FULL SCREEN BUTTON */}
                                 <button
                                     onClick={() => {
-                                    // Close watch together if open to prevent conflicts
-                                    if (isWatchTogether) {
-                                        setIsWatchTogether(false);
-                                    }
-                                    setIsFullScreen(!isFullScreen);
-                                }}
-                                style={{
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    color: theme.textSecondary,
-                                    cursor: 'pointer',
-                                    fontSize: '12px',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                }}
-                                title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
-                            >
-                                {isFullScreen ? '📱 Exit Full' : '🖥️ Full Screen'}
-                            </button>
+                                        if (isWatchTogether) {
+                                            setIsWatchTogether(false);
+                                        }
+                                        setIsFullScreen(!isFullScreen);
+                                    }}
+                                    style={{
+                                        backgroundColor: 'transparent',
+                                        border: 'none',
+                                        color: theme.textSecondary,
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                    }}
+                                    title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                                >
+                                    {isFullScreen ? '📱 Exit Full' : '🖥️ Full Screen'}
+                                </button>
                                 
                                 <button
                                     onClick={clearTerminal}
@@ -1205,18 +1218,16 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
                         {/* Terminal Content Area */}
                         <div
-                        style={{
-                            flex: 1,
-                            backgroundColor: theme.terminalBg,
-                            position: 'relative',
-                            overflow: 'hidden',
-                            fontFamily: 'Monaco, "Courier New", monospace',
-                            fontSize: '13px',
-                            zIndex: 9999,
-                        }}
+                            style={{
+                                flex: 1,
+                                backgroundColor: theme.terminalBg,
+                                position: 'relative',
+                                overflow: 'hidden',
+                                fontFamily: 'Monaco, "Courier New", monospace',
+                                fontSize: '13px',
+                                zIndex: 9999,
+                            }}
                         >
-
-
                             {/* TERMINAL Tab */}
                             <div
                                 style={{
@@ -1227,9 +1238,8 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                     overflow: 'auto',
                                 }}
                             >
-                                {/* ⬇️ Your entire TERMINAL UI code (unchanged) */}
+                                {/* Terminal UI code */}
                                 <div className="terminal-output">
-
                                     <div style={{
                                         position: 'relative',
                                         display: 'flex',
@@ -1341,7 +1351,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                                 >
                                                     {line.replace('[error]', '')}
                                                 </div>
-                                        )) }
+                                            ))}
                                     </div>
 
                                     <div
@@ -1394,12 +1404,16 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 }}
                             >
                                 <DebugAssistant 
+                                    ref= {debugAssistantRef}
                                     terminalFontSize={terminalFontSize}
                                     currentCode={editorRef.current ? editorRef.current.getValue() : ''}
                                     currentLanguage={language}
                                     terminalOutput={output}
                                     theme={theme}
                                     isDarkMode={isDarkMode}
+                                    debugOutput={debugOutput}
+                                    setDebugOutput={setDebugOutput}
+                                    clearDebug={() => setDebugOutput('')}
                                 />
                             </div>
 
@@ -1420,6 +1434,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                 }}
                             >
                                 <AutoDoc 
+                                    ref={autoDocRef}
                                     terminalFontSize={terminalFontSize}
                                     currentCode={editorRef.current ? editorRef.current.getValue() : ''}
                                     currentLanguage={language}
@@ -1429,202 +1444,220 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                     username={username}
                                     roomId={roomId}
                                     isSocketReady={isSocketReady}
+                                    docOutput={docOutput}
+                                    setDocOutput={setDocOutput}
+                                    clearDoc={() => setDocOutput('')}
                                 />
                             </div>
-
                         </div>
-
                     </div>
                 )}
             </div>
 
-
-            {/* RIGHT PANEL - Switches between Chat and AI Assistant */}
-            { isChatOpen && (
-                <div
-                    style={{
-                        width: '320px',
-                        borderLeft: `1px solid ${theme.border}`,
-                        backgroundColor: theme.chatBg,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        flexShrink: 0,
-                        transition: 'all 0.3s ease',
-                        position: 'relative',
-                        zIndex: 1,
-                    }}
-                >
-                    {/* Panel Switcher */}
-                    <PanelSwitcher
-                        activePanel={activePanel}
-                        setActivePanel={setActivePanel}
-                        theme={theme}
-                        chatMessages={chatMessages}
-                        aiMessages={aiMessages}
-                    />
-
-                    {/* Close Button */}
+            {/* RIGHT PANEL - Switches between Chat and AI Assistant with Resize Handle */}
+            {isChatOpen && (
+                <>
+                    {/* Panel Resize Handle */}
                     <div
                         style={{
-                            padding: '12px 20px',
-                            borderBottom: `1px solid ${theme.border}`,
-                            backgroundColor: theme.surface,
+                            position: 'absolute',
+                            left: `calc(100% - ${panelWidth}px - 4px)`,
+                            top: 0,
+                            bottom: 0,
+                            width: '8px',
+                            cursor: 'col-resize',
+                            backgroundColor: 'transparent',
+                            zIndex: 100,
+                        }}
+                        onMouseDown={handlePanelResizeMouseDown}
+                    />
+                    
+                    {/* Right Panel */}
+                    <div
+                        style={{
+                            width: `${panelWidth}px`,
+                            borderLeft: `1px solid ${theme.border}`,
+                            backgroundColor: theme.chatBg,
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
+                            flexDirection: 'column',
+                            flexShrink: 0,
+                            transition: isPanelResizing ? 'none' : 'all 0.3s ease',
+                            position: 'relative',
+                            zIndex: 1,
                         }}
                     >
-                        <div style={{ fontSize: '12px', color: theme.textSecondary }}>
-                            {activePanel === 'chat' ?
-                                `${chatMessages.length - 1} messages • Online` :
-                                `${aiMessages.length - 1} AI conversations`
-                            }
-                        </div>
-                        <button
-                            onClick={toggleChat}
+                        {/* Panel Switcher */}
+                        <PanelSwitcher
+                            activePanel={activePanel}
+                            setActivePanel={setActivePanel}
+                            theme={theme}
+                            chatMessages={chatMessages}
+                            aiMessages={aiMessages}
+                        />
+
+                        {/* Close Button */}
+                        <div
                             style={{
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                color: theme.text,
-                                cursor: 'pointer',
-                                fontSize: '16px',
-                                padding: '4px',
-                                borderRadius: '4px',
+                                padding: '12px 20px',
+                                borderBottom: `1px solid ${theme.border}`,
+                                backgroundColor: theme.surface,
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                justifyContent: 'space-between',
                             }}
-                            title="Close Panel"
                         >
-                            ✕
-                        </button>
-                    </div>
+                            <div style={{ fontSize: '12px', color: theme.textSecondary }}>
+                                {activePanel === 'chat' ?
+                                    `${chatMessages.length - 1} messages • Online` :
+                                    `${aiMessages.length - 1} AI conversations`
+                                }
+                            </div>
+                            <button
+                                onClick={toggleChat}
+                                style={{
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    color: theme.text,
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                                title="Close Panel"
+                            >
+                                ✕
+                            </button>
+                        </div>
 
-                    {/* Dynamic Panel Content */}
-                    <div style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden',
-                        minHeight: 0,
-                    }}>
-                        {activePanel === 'chat' ? (
-                            <>
-                                <div
-                                    style={{
-                                        flex: 1,
-                                        overflowY: 'auto',
-                                        backgroundColor: theme.background,
-                                        padding: '12px 0',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        minHeight: 0,
-                                    }}
-                                >
-                                    {chatMessages.length === 0 ? (
+                        {/* Dynamic Panel Content */}
+                        <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            minHeight: 0,
+                        }}>
+                            {activePanel === 'chat' ? (
+                                <>
+                                    <div
+                                        style={{
+                                            flex: 1,
+                                            overflowY: 'auto',
+                                            backgroundColor: theme.background,
+                                            padding: '12px 0',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            minHeight: 0,
+                                        }}
+                                    >
+                                        {chatMessages.length === 0 ? (
+                                            <div
+                                                style={{
+                                                    color: theme.textSecondary,
+                                                    textAlign: 'center',
+                                                    marginTop: '50px',
+                                                    fontSize: '14px',
+                                                    fontStyle: 'italic',
+                                                }}
+                                            >
+                                                No messages yet. Start the conversation! 👋
+                                            </div>
+                                        ) : (
+                                            chatMessages.map((message) => (
+                                                <ChatMessage key={message.id} message={message} />
+                                            ))
+                                        )}
+                                        <div ref={chatMessagesEndRef} />
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            padding: '16px',
+                                            backgroundColor: theme.surface,
+                                            borderTop: `1px solid ${theme.border}`,
+                                        }}
+                                    >
                                         <div
                                             style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-end',
+                                                gap: '8px',
+                                                backgroundColor: theme.surfaceSecondary,
+                                                borderRadius: '8px',
+                                                padding: '8px 12px',
+                                                border: `1px solid ${theme.border}`,
+                                            }}
+                                        >
+                                            <textarea
+                                                value={chatText}
+                                                onChange={handleChatInputChange}
+                                                onKeyDown={handleChatKeyDown}
+                                                placeholder={isSocketReady ? "Type a message..." : "Connecting..."}
+                                                disabled={!isSocketReady}
+                                                rows={1}
+                                                style={{
+                                                    flex: 1,
+                                                    resize: 'none',
+                                                    backgroundColor: 'transparent',
+                                                    border: 'none',
+                                                    color: isSocketReady ? theme.text : theme.textSecondary,
+                                                    fontSize: '14px',
+                                                    outline: 'none',
+                                                    fontFamily: 'inherit',
+                                                    maxHeight: '80px',
+                                                    padding: '6px 0',
+                                                    lineHeight: '1.4',
+                                                }}
+                                            />
+                                            <button
+                                                onClick={sendChatMessage}
+                                                disabled={!chatText.trim() || !isSocketReady}
+                                                style={{
+                                                    backgroundColor: (chatText.trim() && isSocketReady) ? theme.accent : theme.border,
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    padding: '8px 12px',
+                                                    cursor: (chatText.trim() && isSocketReady) ? 'pointer' : 'not-allowed',
+                                                    color: (chatText.trim() && isSocketReady) ? '#fff' : theme.textSecondary,
+                                                    fontSize: '12px',
+                                                    fontWeight: 'bold',
+                                                    transition: 'all 0.2s ease',
+                                                }}
+                                            >
+                                                Send
+                                            </button>
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontSize: '11px',
                                                 color: theme.textSecondary,
                                                 textAlign: 'center',
-                                                marginTop: '50px',
-                                                fontSize: '14px',
-                                                fontStyle: 'italic',
+                                                marginTop: '8px',
                                             }}
                                         >
-                                            No messages yet. Start the conversation! 👋
+                                            Press Enter to send • Shift+Enter for new line
                                         </div>
-                                    ) : (
-                                        chatMessages.map((message) => (
-                                            <ChatMessage key={message.id} message={message} />
-                                        ))
-                                    )}
-                                    <div ref={chatMessagesEndRef} />
-                                </div>
-
-                                <div
-                                    style={{
-                                        padding: '16px',
-                                        backgroundColor: theme.surface,
-                                        borderTop: `1px solid ${theme.border}`,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'flex-end',
-                                            gap: '8px',
-                                            backgroundColor: theme.surfaceSecondary,
-                                            borderRadius: '8px',
-                                            padding: '8px 12px',
-                                            border: `1px solid ${theme.border}`,
-                                        }}
-                                    >
-                                        <textarea
-                                            value={chatText}
-                                            onChange={handleChatInputChange}
-                                            onKeyDown={handleChatKeyDown}
-                                            placeholder={isSocketReady ? "Type a message..." : "Connecting..."}
-                                            disabled={!isSocketReady}
-                                            rows={1}
-                                            style={{
-                                                flex: 1,
-                                                resize: 'none',
-                                                backgroundColor: 'transparent',
-                                                border: 'none',
-                                                color: isSocketReady ? theme.text : theme.textSecondary,
-                                                fontSize: '14px',
-                                                outline: 'none',
-                                                fontFamily: 'inherit',
-                                                maxHeight: '80px',
-                                                padding: '6px 0',
-                                                lineHeight: '1.4',
-                                            }}
-                                        />
-                                        <button
-                                            onClick={sendChatMessage}
-                                            disabled={!chatText.trim() || !isSocketReady}
-                                            style={{
-                                                backgroundColor: (chatText.trim() && isSocketReady) ? theme.accent : theme.border,
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                padding: '8px 12px',
-                                                cursor: (chatText.trim() && isSocketReady) ? 'pointer' : 'not-allowed',
-                                                color: (chatText.trim() && isSocketReady) ? '#fff' : theme.textSecondary,
-                                                fontSize: '12px',
-                                                fontWeight: 'bold',
-                                                transition: 'all 0.2s ease',
-                                            }}
-                                        >
-                                            Send
-                                        </button>
                                     </div>
-                                    <div
-                                        style={{
-                                            fontSize: '11px',
-                                            color: theme.textSecondary,
-                                            textAlign: 'center',
-                                            marginTop: '8px',
-                                        }}
-                                    >
-                                        Press Enter to send • Shift+Enter for new line
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <AIAssistant
-                                roomId={roomId}
-                                username={username}
-                                socketRef={socketRef}
-                                isSocketReady={isSocketReady}
-                                theme={theme}
-                                currentCode={editorRef.current ? editorRef.current.getValue() : ''}
-                                currentLanguage={language}
-                                aiMessages={aiMessages}
-                                setAiMessages={setAiMessages}
-                            />
-                        )}
+                                </>
+                            ) : (
+                                <AIAssistant
+                                    roomId={roomId}
+                                    username={username}
+                                    socketRef={socketRef}
+                                    isSocketReady={isSocketReady}
+                                    theme={theme}
+                                    currentCode={editorRef.current ? editorRef.current.getValue() : ''}
+                                    currentLanguage={language}
+                                    aiMessages={aiMessages}
+                                    setAiMessages={setAiMessages}
+                                />
+                            )}
+                        </div>
                     </div>
-                </div>
+                </>
             )}
 
             <style>

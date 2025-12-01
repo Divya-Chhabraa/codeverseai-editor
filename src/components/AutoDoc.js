@@ -1,8 +1,8 @@
 // src/components/AutoDoc.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import ACTIONS from '../Actions';
 
-const AutoDoc = ({ 
+const AutoDoc = forwardRef(({ 
   currentCode = '', 
   currentLanguage = 'javascript', 
   theme = {}, 
@@ -10,9 +10,9 @@ const AutoDoc = ({
   socketRef, 
   username, 
   roomId,
-  isSocketReady = false ,
-  terminalFontSize=13
-}) => {
+  isSocketReady = false,
+  terminalFontSize = 13
+}, ref) => {
   const [codeInput, setCodeInput] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [documentation, setDocumentation] = useState('');
@@ -20,41 +20,46 @@ const AutoDoc = ({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   
-  useEffect(() => {
-  if (!socketRef?.current) {
-    console.log('❌ No socket ref available');
-    return;
-  }
-
-  console.log('👂 Setting up AI_DOC_RESULT listener...');
-
-  const socket = socketRef.current; 
-
-  const handleDocResult = (data) => {
-    console.log('📨 Received documentation result:', data);
-    setIsGenerating(false);
-
-    if (data.error) {
-      setError(data.error);
-      console.error('❌ Documentation error:', data.error);
-    } else {
-      setDocumentation(data.documentation);
-      console.log('✅ Documentation received and set in state!');
+  // Expose clear method to parent component
+  useImperativeHandle(ref, () => ({
+    clearOutput: () => {
+      setDocumentation('');
+      setCodeInput('');
+      setError('');
     }
-  };
+  }));
 
-  socket.on(ACTIONS.AI_DOC_RESULT, handleDocResult);
+  useEffect(() => {
+    if (!socketRef?.current) {
+      console.log('❌ No socket ref available');
+      return;
+    }
 
-  return () => {
-    console.log("🧹 Cleaning AI_DOC_RESULT listener...");
-    socket.off(ACTIONS.AI_DOC_RESULT, handleDocResult);
-  };
-}, [socketRef]);
+    console.log('👂 Setting up AI_DOC_RESULT listener...');
 
+    const socket = socketRef.current; 
 
-  // ... rest of your code
+    const handleDocResult = (data) => {
+      console.log('📨 Received documentation result:', data);
+      setIsGenerating(false);
 
-  // 🚀 NEW: Socket-based Documentation Request
+      if (data.error) {
+        setError(data.error);
+        console.error('❌ Documentation error:', data.error);
+      } else {
+        setDocumentation(data.documentation);
+        console.log('✅ Documentation received and set in state!');
+      }
+    };
+
+    socket.on(ACTIONS.AI_DOC_RESULT, handleDocResult);
+
+    return () => {
+      console.log("🧹 Cleaning AI_DOC_RESULT listener...");
+      socket.off(ACTIONS.AI_DOC_RESULT, handleDocResult);
+    };
+  }, [socketRef]);
+
   const generateDocumentation = () => {
     console.log('📄 Sending doc request with:', {
       roomId,
@@ -92,7 +97,6 @@ const AutoDoc = ({
     navigator.clipboard.writeText(documentation);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-    
   };
 
   const useCurrentEditorCode = () => {
@@ -155,10 +159,7 @@ const AutoDoc = ({
         </div>
       </div>
 
-      
       {/* Language Selector */}
-      {/* ------- UI BELOW UNCHANGED ------ */}
-
       <div style={{ marginBottom: '12px' }}>
         <label style={{
           display: 'block',
@@ -368,10 +369,8 @@ const AutoDoc = ({
         </pre>
       </div>
       )}
-
-
     </div>
   );
-};
+});
 
 export default AutoDoc;

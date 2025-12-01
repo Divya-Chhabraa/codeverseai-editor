@@ -1,18 +1,26 @@
 // src/components/DebugAssistant.js
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 
-const DebugAssistant = ({ 
+const DebugAssistant = forwardRef(({ 
   currentCode, 
   currentLanguage, 
   terminalOutput, 
   theme, 
   isDarkMode 
-}) => {
+}, ref) => {
   const [debugQuestion, setDebugQuestion] = useState('');
   const [debugResult, setDebugResult] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentModel, setCurrentModel] = useState('llama-3.1-8b-instant');
   const [copied, setCopied] = useState(false);
+
+  // Expose clear method to parent component
+  useImperativeHandle(ref, () => ({
+    clearOutput: () => {
+      setDebugResult('');
+      setDebugQuestion('');
+    }
+  }));
 
   const analyzeWithAI = async () => {
     if (!debugQuestion.trim() && !terminalOutput) {
@@ -335,6 +343,6 @@ Keep response under 200 words.
       </div>
     </div>
   );
-};
+});
 
 export default DebugAssistant;
