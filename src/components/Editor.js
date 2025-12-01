@@ -1001,7 +1001,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 <div style={{
                     display: 'flex',
                     flexDirection: 'row',
-                    flex: 1,
+                    flex: isTerminalOpen ? `calc(100% - ${terminalHeight}px)` : 1,  // <-- THIS IS THE KEY CHANGE
                     minHeight: 0,
                     overflow: 'hidden'
                 }}>
@@ -1016,10 +1016,12 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                         
                         {/* Editor textarea here */}
                         <div style={{
-                            display: isFullScreen ? 'none' : 'block',
-                            flex: isFullScreen ? 0 : 1,
-                            height: isFullScreen ? '0px' : 'auto',
-                            overflow: 'auto',
+                            display: isFullScreen ? 'none' : 'flex',  // Changed from 'block' to 'flex'
+                            flexDirection: 'column',
+                            flex: 1,
+                            height: isFullScreen ? 0 : 1,   // Changed from 'auto' to '100%'
+                            minHeight: 0,
+                            overflow: 'hidden',                      // Changed from 'auto' to 'hidden'
                             position: 'relative',
                             transition: 'all 0.3s ease',
                         }}>
@@ -1645,6 +1647,20 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                 }
                 `}
             </style>
+            <style>{`
+            .CodeMirror {
+                height: 100% !important;
+            }
+            .CodeMirror-scroll {
+                height: relative !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
+            .CodeMirror-sizer {
+                margin-bottom: 0 !important;
+            }
+            `}</style>
+
         </div>
     );
 };
