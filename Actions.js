@@ -7,15 +7,15 @@ const ACTIONS = {
     LEAVE: 'leave',
     LANGUAGE_CHANGE: 'language-change',
     RUN_OUTPUT: 'run-output',
-    INPUT_CHANGE: 'input-change', 
+    INPUT_CHANGE: 'input-change',
     CHAT_MESSAGE: 'chat-message',
     CHAT_HISTORY: 'chat-history',
     AI_MESSAGE: 'ai-message',
     AI_HISTORY_REQUEST: 'ai-history-request',
-    AI_HISTORY_SYNC: 'ai-history-sync', 
+    AI_HISTORY_SYNC: 'ai-history-sync',
     SYNC_CODE_REQUEST: 'sync-code-request',
-    AI_DOC_REQUEST:'ai-doc-request',
-    AI_DOC_RESULT:'ai-doc-result',
+    AI_DOC_REQUEST: 'ai-doc-request',
+    AI_DOC_RESULT: 'ai-doc-result',
     VIDEO_JOIN: 'video-join',
     VIDEO_PLAY: 'video-play',
     VIDEO_PAUSE: 'video-pause',
@@ -29,5 +29,4 @@ const ACTIONS = {
     RUN_OUTPUT: 'RUN_OUTPUT',
 };
 
-export default ACTIONS;
- 
+module.exports = ACTIONS;
