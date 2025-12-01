@@ -7,9 +7,11 @@ const ACTIONS = require('./src/Actions');
 const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const { spawn } = require('child_process');
 require('dotenv').config();
 
 const server = http.createServer(app);
+const RUN_SESSIONS = {};
 
 // ✅ CORS configuration
 const allowedOrigins = [
@@ -50,6 +52,19 @@ const roomLanguageState = {};
 const roomOutputState = {};
 const roomInputState = {};
 const roomVideoState = {};
+
+function getCommandForLanguage(language) {
+    // You can extend this object as you add more languages
+    switch (language) {
+        case 'javascript':
+            return { cmd: 'node', args: ['-'] };       // code via stdin
+        case 'python':
+            return { cmd: 'python', args: ['-u', '-'] }; // -u for unbuffered, code via stdin
+        // For compiled languages you'd need a separate compile+run flow.
+        default:
+            throw new Error(`Unsupported language: ${language}`);
+    }
+}
 
 function getAllConnectedClients(roomId) {
     return Array.from(io.sockets.adapter.rooms.get(roomId) || []).map(
@@ -279,7 +294,7 @@ Documentation:`;
     socket.on(ACTIONS.VIDEO_JOIN, ({ roomId }) => {
         socket.join(`video-${roomId}`);
         console.log(`🎥 User ${socket.id} joined video room: ${roomId}`);
-        
+
         // Send current video state to new user IMMEDIATELY
         if (roomVideoState[roomId]) {
             console.log(`🎥 Sending current state to new user:`, roomVideoState[roomId]);
@@ -292,9 +307,9 @@ Documentation:`;
 
     socket.on(ACTIONS.VIDEO_PLAY, (data) => {
         const { roomId, currentTime, videoUrl, timestamp } = data;
-        
+
         console.log(`🎥 VIDEO_PLAY: Room ${roomId}, Time: ${currentTime}`);
-        
+
         // Update room state
         roomVideoState[roomId] = {
             isPlaying: true,
@@ -303,7 +318,7 @@ Documentation:`;
             timestamp: timestamp,
             lastAction: 'play'
         };
-        
+
         // Broadcast to ALL other users (not the sender)
         socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_PLAY, {
             roomId,
@@ -316,9 +331,9 @@ Documentation:`;
 
     socket.on(ACTIONS.VIDEO_PAUSE, (data) => {
         const { roomId, currentTime, videoUrl, timestamp } = data;
-        
+
         console.log(`🎥 VIDEO_PAUSE: Room ${roomId}, Time: ${currentTime}`);
-        
+
         roomVideoState[roomId] = {
             isPlaying: false,
             currentTime: currentTime,
@@ -326,7 +341,7 @@ Documentation:`;
             timestamp: timestamp,
             lastAction: 'pause'
         };
-        
+
         // Broadcast to ALL other users (not the sender)
         socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_PAUSE, {
             roomId,
@@ -339,15 +354,15 @@ Documentation:`;
 
     socket.on(ACTIONS.VIDEO_SEEK, (data) => {
         const { roomId, currentTime, timestamp } = data;
-        
+
         console.log(`🎥 VIDEO_SEEK: Room ${roomId}, Time: ${currentTime}`);
-        
+
         if (roomVideoState[roomId]) {
             roomVideoState[roomId].currentTime = currentTime;
             roomVideoState[roomId].timestamp = timestamp;
             roomVideoState[roomId].lastAction = 'seek';
         }
-        
+
         // Broadcast to ALL other users (not the sender)
         socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_SEEK, {
             roomId,
@@ -359,9 +374,9 @@ Documentation:`;
 
     socket.on(ACTIONS.VIDEO_CHANGE, (data) => {
         const { roomId, videoUrl, timestamp } = data;
-        
+
         console.log(`🎥 VIDEO_CHANGE: Room ${roomId}, New URL: ${videoUrl}`);
-        
+
         roomVideoState[roomId] = {
             isPlaying: true,
             currentTime: 0,
@@ -369,7 +384,7 @@ Documentation:`;
             timestamp: timestamp,
             lastAction: 'change'
         };
-        
+
         // Broadcast to ALL other users (not the sender)
         socket.to(`video-${roomId}`).emit(ACTIONS.VIDEO_CHANGE, {
             roomId,
@@ -386,6 +401,143 @@ Documentation:`;
         }
     });
 
+    // Code execution events
+    socket.on('RUN_START', ({ roomId, code, language }) => {
+    try {
+        const fs = require('fs');
+        const os = require('os');
+        const path = require('path');
+
+        // Kill previous process
+        if (RUN_SESSIONS[roomId]?.proc) {
+            RUN_SESSIONS[roomId].proc.kill('SIGKILL');
+            delete RUN_SESSIONS[roomId];
+        }
+
+        let proc;
+        let tempFile, outputExec;
+
+        if (language === 'cpp') {
+            tempFile = path.join(os.tmpdir(), `file_${roomId}.cpp`);
+            outputExec = path.join(os.tmpdir(), `a_${roomId}.exe`);
+            fs.writeFileSync(tempFile, code);
+
+            // Compile
+            const compile = spawn('g++', [tempFile, '-o', outputExec]);
+
+            compile.stderr.on('data', data =>
+                io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+            );
+
+            compile.on('close', exitCode => {
+                if (exitCode === 0) {
+                    proc = spawn(outputExec, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+                    attachHandlers(proc, roomId);
+                } else {
+                    io.to(roomId).emit('RUN_OUTPUT', {
+                        chunk: 'Compilation failed.\n',
+                        isEnd: true
+                    });
+                }
+            });
+
+        } else if (language === 'java') {
+            tempFile = path.join(os.tmpdir(), `Main_${roomId}.java`);
+            fs.writeFileSync(tempFile, code);
+
+            // Compile
+            const compile = spawn('javac', [tempFile]);
+
+            compile.stderr.on('data', data =>
+                io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+            );
+
+            compile.on('close', exitCode => {
+                if (exitCode === 0) {
+                    proc = spawn('java', ['-cp', os.tmpdir(), `Main_${roomId}`], {
+                        stdio: ['pipe', 'pipe', 'pipe']
+                    });
+                    attachHandlers(proc, roomId);
+                } else {
+                    io.to(roomId).emit('RUN_OUTPUT', {
+                        chunk: 'Compilation failed.\n',
+                        isEnd: true
+                    });
+                }
+            });
+
+        } else {
+            // Python / JavaScript
+            const ext = language === 'python' ? 'py' : 'js';
+            tempFile = path.join(os.tmpdir(), `file_${roomId}.${ext}`);
+            fs.writeFileSync(tempFile, code);
+
+            const cmd = language === 'python' ? 'python' : 'node';
+            proc = spawn(cmd, [tempFile], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+            attachHandlers(proc, roomId);
+        }
+
+        socket.join(roomId);
+
+    } catch (err) {
+        io.to(roomId).emit('RUN_OUTPUT', {
+            chunk: `Error: ${err.message}\n`,
+            isEnd: true
+        });
+    }
+});
+
+// 🔹 Shared Handler for all languages
+function attachHandlers(proc, roomId) {
+    RUN_SESSIONS[roomId] = { proc };
+
+    proc.stdout.on('data', data =>
+        io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+    );
+
+    proc.stderr.on('data', data =>
+        io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+    );
+
+    proc.on('close', () => {
+        io.to(roomId).emit('RUN_OUTPUT', {
+            chunk: '',
+            isEnd: true
+        });
+        delete RUN_SESSIONS[roomId];
+    });
+}
+
+
+
+
+    // Send INPUT into running process
+    socket.on('RUN_INPUT', ({ roomId, input }) => {
+        const session = RUN_SESSIONS[roomId];
+        if (session && session.proc && !session.proc.killed) {
+            session.proc.stdin.write(input + '\n');
+        } else {
+            socket.emit('RUN_OUTPUT', {
+                roomId,
+                chunk: '[No active process. Press Run again.]\n',
+            });
+        }
+    });
+
+    // Stop process manually if needed
+    socket.on('RUN_STOP', ({ roomId }) => {
+        const session = RUN_SESSIONS[roomId];
+        if (session && session.proc && !session.proc.killed) {
+            session.proc.kill('SIGKILL');
+            delete RUN_SESSIONS[roomId];
+            socket.emit('RUN_OUTPUT', {
+                roomId,
+                chunk: '[Process stopped]\n',
+            });
+        }
+    });
+
     socket.on('disconnecting', () => {
         const rooms = [...socket.rooms];
         rooms.forEach((roomId) => {
@@ -393,8 +545,6 @@ Documentation:`;
                 socketId: socket.id,
                 username: userSocketMap[socket.id],
             });
-
-    
 
             const clientsInRoom = io.sockets.adapter.rooms.get(roomId);
             if (!clientsInRoom || clientsInRoom.size === 0) {
@@ -539,7 +689,7 @@ TECHNICAL DEPTH:
             : `Question: ${message}`;
 
         const requestBody = {
-            model:"llama-3.1-8b-instant",
+            model: "llama-3.1-8b-instant",
             messages: [
                 {
                     role: 'system',
@@ -556,7 +706,7 @@ TECHNICAL DEPTH:
         };
         console.log(
             "Debug- Body sent to Groq:",
-            JSON.stringify(requestBody,null,2)
+            JSON.stringify(requestBody, null, 2)
         );
         const response = await fetch(
             'https://api.groq.com/openai/v1/chat/completions',

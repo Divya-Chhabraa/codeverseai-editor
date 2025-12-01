@@ -23,6 +23,10 @@ const ACTIONS = {
     VIDEO_CHANGE: 'video-change',
     VIDEO_STATE_SYNC: 'video-state-sync',
     VIDEO_SYNC_REQUEST: 'video-sync-request',
+    RUN_START: 'RUN_START',
+    RUN_INPUT: 'RUN_INPUT',
+    RUN_STOP: 'RUN_STOP',
+    RUN_OUTPUT: 'RUN_OUTPUT',
 };
 
 module.exports = ACTIONS;

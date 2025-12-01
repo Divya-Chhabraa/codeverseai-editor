@@ -368,14 +368,19 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             setLanguage(newLanguage);
         };
 
-        const handleRunOutput = ({ output }) => {
-            if (!initialOutputReceived && output) {
-                setOutput(output);
-                setInitialOutputReceived(true);
-            } else if (initialOutputReceived) {
-                setOutput(output);
-            }
-        };
+        const handleRunOutput = ({ chunk, isEnd }) => {
+    if (chunk) {
+        setOutput(prev => prev + chunk);
+    }
+    if (isEnd) {
+        setIsRunning(false);
+    }
+};
+    // Auto-scroll terminal to bottom
+    
+
+
+
 
         const handleInputChange = ({ input }) => {
             setUserInput(input);
@@ -495,49 +500,18 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
     };
 
     /* ---------------- Run code via backend ---------------- */
-    const runCode = async () => {
-        if (!editorRef.current) return;
+    const runCode = () => {
+    if (!socketRef.current || !isSocketReady) return;
+    setOutput('');
+    setIsRunning(true);
 
-        setIsRunning(true);
-        const code = editorRef.current.getValue();
+    socketRef.current.emit('RUN_START', {
+        roomId,
+        code: editorRef.current.getValue(),
+        language,
+    });
+};
 
-        try {
-            const backendUrl = getBackendUrl();
-            
-            const response = await fetch(`${backendUrl}/run`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, language, input: userInput }),
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            const outputText = result.output || result.error || 'No output';
-            setOutput(outputText);
-
-            if (socketRef.current && isSocketReady) {
-                socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
-                    roomId,
-                    output: outputText,
-                });
-            }
-        } catch (err) {
-            const errorOutput = 'Error running code: ' + err.message;
-            setOutput(errorOutput);
-            
-            if (socketRef.current && isSocketReady) {
-                socketRef.current.emit(ACTIONS.RUN_OUTPUT, {
-                    roomId,
-                    output: errorOutput,
-                });
-            }
-        } finally {
-            setIsRunning(false);
-        }
-    };
 
     /* ---------------- Chat input handler ---------------- */
     const handleChatInputChange = (e) => {
@@ -585,20 +559,29 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
 
     /* ---------------- Handle Terminal Input ---------------- */
     const handleTerminalInput = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const input = e.target.value;
-            if (input.trim()) {
-                setOutput(prev => prev + `\n> ${input}`);
-                setUserInput(input);
-                e.target.value = '';
-                
-                if (editorRef.current) {
-                    runCode();
-                }
-            }
-        }
-    };
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const input = e.target.value.trim();
+        if (!input || !socketRef.current || !isSocketReady) return;
+
+        // Append the typed input to output (before sending to backend)
+        setOutput((prev) =>
+            prev
+                ? `${prev}\n> ${input}\n` 
+                : `> ${input}\n`
+        );
+
+        e.target.value = ''; // clear input
+
+        // Send only input to backend
+        socketRef.current.emit('RUN_INPUT', {
+            roomId,
+            input,
+        });
+    }
+};
+
+
 
     /* ---------------- Clear Terminal ---------------- */
     const clearTerminal = () => {
@@ -1345,13 +1328,20 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                             fontSize: `${terminalFontSize}px`,
                                         }}
                                     >
-                                        {output ? (
-                                            <div style={{ marginBottom: '8px' }}>
-                                                {output}
-                                            </div>
-                                        ) : (
-                                            <div style={{ color: theme.textSecondary }} />
-                                        )}
+                                        {output
+                                            .split('\n')
+                                            .map((line, index) => (
+                                                <div
+                                                    key={index}
+                                                    style={{
+                                                        color: line.startsWith('[error]')
+                                                            ? '#ff4d4f' // Red errors
+                                                            : theme.terminalText
+                                                    }}
+                                                >
+                                                    {line.replace('[error]', '')}
+                                                </div>
+                                        )) }
                                     </div>
 
                                     <div
