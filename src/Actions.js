@@ -30,3 +30,4 @@ const ACTIONS = {
 };
 
 export default ACTIONS;
+module.exports = ACTIONS;  
