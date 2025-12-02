@@ -337,7 +337,7 @@ Let's build something amazing together! 💻🔥`;
                 />
             </div>
 
-            <style jsx>{`
+            <style>{`
                 .editor-page {
                     display: flex;
                     height: 100vh;
