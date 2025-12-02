@@ -29,5 +29,5 @@ const ACTIONS = {
     RUN_OUTPUT: 'RUN_OUTPUT',
 };
 
-module.exports= ACTIONS
- 
+//module.exports= ACTIONS
+export default ACTIONS;
