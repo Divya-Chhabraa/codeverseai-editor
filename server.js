@@ -3,11 +3,7 @@ const app = express();
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-
-// ✅ FIXED: Properly load ACTIONS even if Actions.js uses `export default`
-const ActionsRaw = require('./src/Actions');
-const ACTIONS = ActionsRaw.default || ActionsRaw;
-
+const ACTIONS = require('./src/Actions');
 const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -405,11 +401,13 @@ Documentation:`;
     });
 
     // Code execution events
-    socket.on('RUN_START', ({ roomId, code, language }) => {
+    socket.on('/run', ({ roomId, code, language }) => {
         try {
             const fs = require('fs');
             const os = require('os');
             const path = require('path');
+
+            console.log(`🚀 /run: room=${roomId}, language=${language}`);
 
             // Kill previous process
             if (RUN_SESSIONS[roomId]?.proc) {
@@ -431,6 +429,15 @@ Documentation:`;
                 compile.stderr.on('data', data =>
                     io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
                 );
+
+                // 🔹 Handle spawn errors (e.g., g++ not installed)
+                compile.on('error', (err) => {
+                    console.error('g++ spawn error:', err);
+                    io.to(roomId).emit('RUN_OUTPUT', {
+                        chunk: `[error] ${err.message}\n`,
+                        isEnd: true
+                    });
+                });
 
                 compile.on('close', exitCode => {
                     if (exitCode === 0) {
@@ -454,6 +461,15 @@ Documentation:`;
                 compile.stderr.on('data', data =>
                     io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
                 );
+
+                // 🔹 Handle spawn errors (e.g., javac not installed)
+                compile.on('error', (err) => {
+                    console.error('javac spawn error:', err);
+                    io.to(roomId).emit('RUN_OUTPUT', {
+                        chunk: `[error] ${err.message}\n`,
+                        isEnd: true
+                    });
+                });
 
                 compile.on('close', exitCode => {
                     if (exitCode === 0) {
@@ -484,6 +500,7 @@ Documentation:`;
             socket.join(roomId);
 
         } catch (err) {
+            console.error('/run error:', err);
             io.to(roomId).emit('RUN_OUTPUT', {
                 chunk: `Error: ${err.message}\n`,
                 isEnd: true
@@ -503,17 +520,19 @@ Documentation:`;
             io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
         );
 
-        proc.on('close', () => {
+        // 🔹 Handle runtime spawn errors (e.g., python/node not found)
+        proc.on('error', (err) => {
+            console.error('runtime spawn error:', err);
             io.to(roomId).emit('RUN_OUTPUT', {
-                chunk: '',
+                chunk: `[error] ${err.message}\n`,
                 isEnd: true
             });
             delete RUN_SESSIONS[roomId];
         });
 
-        proc.on('error', (err) => {
+        proc.on('close', () => {
             io.to(roomId).emit('RUN_OUTPUT', {
-                chunk: `Error starting process: ${err.message}\n`,
+                chunk: '',
                 isEnd: true
             });
             delete RUN_SESSIONS[roomId];
@@ -528,7 +547,8 @@ Documentation:`;
         } else {
             socket.emit('RUN_OUTPUT', {
                 roomId,
-                chunk: '[No active process. Press Run again.]\n',
+                chunk: '[error] [No active process. Press Run again.]\n',
+                isEnd: false
             });
         }
     });
@@ -542,6 +562,7 @@ Documentation:`;
             socket.emit('RUN_OUTPUT', {
                 roomId,
                 chunk: '[Process stopped]\n',
+                isEnd: true
             });
         }
     });
@@ -607,7 +628,7 @@ app.post('/api/file/:roomId', (req, res) => {
     return res.json({ success: true });
 });
 
-/* ---------------- CODE EXECUTION ROUTE (PISTON) ---------------- */
+/* ---------------- CODE EXECUTION ROUTE ---------------- */
 app.post('/run', async (req, res) => {
     const { code, language, input } = req.body;
 

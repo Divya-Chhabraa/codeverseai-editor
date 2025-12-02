@@ -523,18 +523,56 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         }
     };
 
-    /* ---------------- Run code via backend ---------------- */
-    const runCode = () => {
-        if (!socketRef.current || !isSocketReady) return;
-        setOutput('');
-        setIsRunning(true);
+    /* ---------------- Run code via Piston backend (/run) ---------------- */
+    /* ---------------- Run code via Piston backend ---------------- */
+const runCode = async (stdinFromTerminal) => {
+    if (!editorRef.current) return;
 
-        socketRef.current.emit('RUN_START', {
-            roomId,
-            code: editorRef.current.getValue(),
-            language,
+    const code = editorRef.current.getValue();
+    if (!code.trim()) {
+        setOutput('[error] No code to run.\n');
+        return;
+    }
+
+    // If input is passed explicitly, use that.
+    // Otherwise, use the last userInput from state (if any).
+    const input = typeof stdinFromTerminal === 'string'
+        ? stdinFromTerminal
+        : userInput || '';
+
+    setIsRunning(true);
+    setOutput(''); // clear previous output, or remove this line if you want to append
+
+    try {
+        const backendUrl = getBackendUrl();
+        const res = await fetch(`${backendUrl}/run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                code,
+                language,
+                input,
+            }),
         });
-    };
+
+        const data = await res.json();
+
+        if (data.success) {
+            setOutput(data.output || 'No output');
+        } else {
+            setOutput(
+                `[error] ${data.error || 'Error running code.'}\n` +
+                (data.details ? `${data.details}\n` : '')
+            );
+        }
+    } catch (err) {
+        setOutput(`[error] ${err.message}\n`);
+    } finally {
+        // IMPORTANT: allow rerunning
+        setIsRunning(false);
+    }
+};
+
 
     /* ---------------- Chat input handler ---------------- */
     const handleChatInputChange = (e) => {
@@ -580,26 +618,33 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
         setIsTerminalOpen(!isTerminalOpen);
     };
 
-    /* ---------------- Handle Terminal Input ---------------- */
-    const handleTerminalInput = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const input = e.target.value.trim();
-            if (!input || !socketRef.current || !isSocketReady) return;
+    /* ---------------- Handle Terminal Input (build stdin for Piston) ---------------- */
+    /* ---------------- Handle Terminal Input (Enter = run code) ---------------- */
+const handleTerminalInput = async (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const input = e.target.value.trim();
+        if (!input) return;
 
-            setOutput((prev) =>
-                prev
-                    ? `${prev}\n> ${input}\n` 
-                    : `> ${input}\n`
-            );
+        // Save last input so Run button can reuse it if needed
+        setUserInput(input);
 
-            e.target.value = '';
-            socketRef.current.emit('RUN_INPUT', {
-                roomId,
-                input,
-            });
-        }
-    };
+        // Show the input in the terminal like a real shell
+        setOutput((prev) =>
+            prev
+                ? `${prev}\n> ${input}\n`
+                : `> ${input}\n`
+        );
+
+        // Clear the input box
+        e.target.value = '';
+
+        // 🔥 Directly run code with this input using Piston
+        await runCode(input);
+    }
+};
+
+
 
     /* ---------------- Clear Terminal/Debug/Doc ---------------- */
     const clearTerminal = () => {
@@ -608,14 +653,14 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
             setUserInput('');
         } else if (activeBottomTab === 'ai') {
             if (debugAssistantRef.current && debugAssistantRef.current.clearOutput) {
-            debugAssistantRef.current.clearOutput();
-        }
+                debugAssistantRef.current.clearOutput();
+            }
         } else if (activeBottomTab === 'input') {  // ← ADD 'else if' here
-        if (autoDocRef.current && autoDocRef.current.clearOutput) {
-            autoDocRef.current.clearOutput();
+            if (autoDocRef.current && autoDocRef.current.clearOutput) {
+                autoDocRef.current.clearOutput();
+            }
         }
-    }
-};
+    };
 
     /* ---------------- Chat Message Component ---------------- */
     const ChatMessage = ({ message }) => {
@@ -1376,7 +1421,7 @@ const Editor = ({ roomId, onCodeChange, username, socketRef }) => {
                                         <input
                                             ref={terminalInputRef}
                                             type="text"
-                                            placeholder="Type input here and press Enter to run..."
+                                            placeholder="Type input here, press Enter..."
                                             onKeyDown={handleTerminalInput}
                                             style={{
                                                 flex: 1,
