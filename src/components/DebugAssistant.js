@@ -133,29 +133,6 @@ Keep response under 200 words.
       <h3 style={{ color: theme.accent, marginBottom: '12px', fontSize: '14px' }}>
         🤖 AI Debug Assistant
       </h3>
-      
-      {/* Model Selector */}
-      <div style={{ marginBottom: '12px' }}>
-        <select
-          value={currentModel}
-          onChange={handleModelChange}
-          style={{
-            width: '100%',
-            backgroundColor: isDarkMode ? '#1a1b26' : '#ffffff',
-            color: theme.terminalText,
-            border: `1px solid ${theme.border}`,
-            borderRadius: '6px',
-            padding: '8px 12px',
-            fontSize: '12px',
-            outline: 'none'
-          }}
-        >
-          <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-          <option value="llama-3.2-1b-preview">Llama 3.2 1B Preview</option>
-          <option value="llama-3.2-3b-preview">Llama 3.2 3B Preview</option>
-          <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
-        </select>
-      </div>
 
       {/* Debug Input Area */}
       <div style={{ marginBottom: '16px' }}>
