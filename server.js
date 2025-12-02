@@ -3,7 +3,11 @@ const app = express();
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-const ACTIONS = require('./src/Actions');
+
+// ✅ FIXED: Properly load ACTIONS even if Actions.js uses `export default`
+const ActionsRaw = require('./src/Actions');
+const ACTIONS = ActionsRaw.default || ActionsRaw;
+
 const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -402,114 +406,119 @@ Documentation:`;
 
     // Code execution events
     socket.on('RUN_START', ({ roomId, code, language }) => {
-    try {
-        const fs = require('fs');
-        const os = require('os');
-        const path = require('path');
+        try {
+            const fs = require('fs');
+            const os = require('os');
+            const path = require('path');
 
-        // Kill previous process
-        if (RUN_SESSIONS[roomId]?.proc) {
-            RUN_SESSIONS[roomId].proc.kill('SIGKILL');
+            // Kill previous process
+            if (RUN_SESSIONS[roomId]?.proc) {
+                RUN_SESSIONS[roomId].proc.kill('SIGKILL');
+                delete RUN_SESSIONS[roomId];
+            }
+
+            let proc;
+            let tempFile, outputExec;
+
+            if (language === 'cpp') {
+                tempFile = path.join(os.tmpdir(), `file_${roomId}.cpp`);
+                outputExec = path.join(os.tmpdir(), `a_${roomId}.exe`);
+                fs.writeFileSync(tempFile, code);
+
+                // Compile
+                const compile = spawn('g++', [tempFile, '-o', outputExec]);
+
+                compile.stderr.on('data', data =>
+                    io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+                );
+
+                compile.on('close', exitCode => {
+                    if (exitCode === 0) {
+                        proc = spawn(outputExec, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+                        attachHandlers(proc, roomId);
+                    } else {
+                        io.to(roomId).emit('RUN_OUTPUT', {
+                            chunk: 'Compilation failed.\n',
+                            isEnd: true
+                        });
+                    }
+                });
+
+            } else if (language === 'java') {
+                tempFile = path.join(os.tmpdir(), `Main_${roomId}.java`);
+                fs.writeFileSync(tempFile, code);
+
+                // Compile
+                const compile = spawn('javac', [tempFile]);
+
+                compile.stderr.on('data', data =>
+                    io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+                );
+
+                compile.on('close', exitCode => {
+                    if (exitCode === 0) {
+                        proc = spawn('java', ['-cp', os.tmpdir(), `Main_${roomId}`], {
+                            stdio: ['pipe', 'pipe', 'pipe']
+                        });
+                        attachHandlers(proc, roomId);
+                    } else {
+                        io.to(roomId).emit('RUN_OUTPUT', {
+                            chunk: 'Compilation failed.\n',
+                            isEnd: true
+                        });
+                    }
+                });
+
+            } else {
+                // Python / JavaScript
+                const ext = language === 'python' ? 'py' : 'js';
+                tempFile = path.join(os.tmpdir(), `file_${roomId}.${ext}`);
+                fs.writeFileSync(tempFile, code);
+
+                const cmd = language === 'python' ? 'python' : 'node';
+                proc = spawn(cmd, [tempFile], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+                attachHandlers(proc, roomId);
+            }
+
+            socket.join(roomId);
+
+        } catch (err) {
+            io.to(roomId).emit('RUN_OUTPUT', {
+                chunk: `Error: ${err.message}\n`,
+                isEnd: true
+            });
+        }
+    });
+
+    // 🔹 Shared Handler for all languages
+    function attachHandlers(proc, roomId) {
+        RUN_SESSIONS[roomId] = { proc };
+
+        proc.stdout.on('data', data =>
+            io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+        );
+
+        proc.stderr.on('data', data =>
+            io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
+        );
+
+        proc.on('close', () => {
+            io.to(roomId).emit('RUN_OUTPUT', {
+                chunk: '',
+                isEnd: true
+            });
             delete RUN_SESSIONS[roomId];
-        }
+        });
 
-        let proc;
-        let tempFile, outputExec;
-
-        if (language === 'cpp') {
-            tempFile = path.join(os.tmpdir(), `file_${roomId}.cpp`);
-            outputExec = path.join(os.tmpdir(), `a_${roomId}.exe`);
-            fs.writeFileSync(tempFile, code);
-
-            // Compile
-            const compile = spawn('g++', [tempFile, '-o', outputExec]);
-
-            compile.stderr.on('data', data =>
-                io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
-            );
-
-            compile.on('close', exitCode => {
-                if (exitCode === 0) {
-                    proc = spawn(outputExec, [], { stdio: ['pipe', 'pipe', 'pipe'] });
-                    attachHandlers(proc, roomId);
-                } else {
-                    io.to(roomId).emit('RUN_OUTPUT', {
-                        chunk: 'Compilation failed.\n',
-                        isEnd: true
-                    });
-                }
+        proc.on('error', (err) => {
+            io.to(roomId).emit('RUN_OUTPUT', {
+                chunk: `Error starting process: ${err.message}\n`,
+                isEnd: true
             });
-
-        } else if (language === 'java') {
-            tempFile = path.join(os.tmpdir(), `Main_${roomId}.java`);
-            fs.writeFileSync(tempFile, code);
-
-            // Compile
-            const compile = spawn('javac', [tempFile]);
-
-            compile.stderr.on('data', data =>
-                io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
-            );
-
-            compile.on('close', exitCode => {
-                if (exitCode === 0) {
-                    proc = spawn('java', ['-cp', os.tmpdir(), `Main_${roomId}`], {
-                        stdio: ['pipe', 'pipe', 'pipe']
-                    });
-                    attachHandlers(proc, roomId);
-                } else {
-                    io.to(roomId).emit('RUN_OUTPUT', {
-                        chunk: 'Compilation failed.\n',
-                        isEnd: true
-                    });
-                }
-            });
-
-        } else {
-            // Python / JavaScript
-            const ext = language === 'python' ? 'py' : 'js';
-            tempFile = path.join(os.tmpdir(), `file_${roomId}.${ext}`);
-            fs.writeFileSync(tempFile, code);
-
-            const cmd = language === 'python' ? 'python' : 'node';
-            proc = spawn(cmd, [tempFile], { stdio: ['pipe', 'pipe', 'pipe'] });
-
-            attachHandlers(proc, roomId);
-        }
-
-        socket.join(roomId);
-
-    } catch (err) {
-        io.to(roomId).emit('RUN_OUTPUT', {
-            chunk: `Error: ${err.message}\n`,
-            isEnd: true
+            delete RUN_SESSIONS[roomId];
         });
     }
-});
-
-// 🔹 Shared Handler for all languages
-function attachHandlers(proc, roomId) {
-    RUN_SESSIONS[roomId] = { proc };
-
-    proc.stdout.on('data', data =>
-        io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
-    );
-
-    proc.stderr.on('data', data =>
-        io.to(roomId).emit('RUN_OUTPUT', { chunk: data.toString() })
-    );
-
-    proc.on('close', () => {
-        io.to(roomId).emit('RUN_OUTPUT', {
-            chunk: '',
-            isEnd: true
-        });
-        delete RUN_SESSIONS[roomId];
-    });
-}
-
-
-
 
     // Send INPUT into running process
     socket.on('RUN_INPUT', ({ roomId, input }) => {
@@ -598,7 +607,7 @@ app.post('/api/file/:roomId', (req, res) => {
     return res.json({ success: true });
 });
 
-/* ---------------- CODE EXECUTION ROUTE ---------------- */
+/* ---------------- CODE EXECUTION ROUTE (PISTON) ---------------- */
 app.post('/run', async (req, res) => {
     const { code, language, input } = req.body;
 
