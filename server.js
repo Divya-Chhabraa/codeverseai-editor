@@ -19,7 +19,6 @@ const allowedOrigins = [
     'http://localhost:5000',
     'http://localhost:8501',
     'https://warm-trifle-d2c345.netlify.app',
-    'https://codeverse-ai.netlify.app',
     'https://codeverseai-editor-production.up.railway.app',
     'https://codeverseai-editor.vercel.app',
 ];
